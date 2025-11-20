@@ -888,38 +888,6 @@ async def creds_batch_action(request: CredFileBatchActionRequest, token: str = D
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/creds/download/{filename}")
-async def download_cred_file(filename: str, token: str = Depends(verify_token)):
-    """下载单个凭证文件"""
-    try:
-        # 验证文件名安全性
-        if not filename.endswith('.json'):
-            raise HTTPException(status_code=404, detail="无效的文件名")
-        
-        # 获取存储适配器
-        storage_adapter = await get_storage_adapter()
-        
-        # 从存储系统获取凭证数据
-        credential_data = await storage_adapter.get_credential(filename)
-        if not credential_data:
-            raise HTTPException(status_code=404, detail="文件不存在")
-        
-        # 转换为JSON字符串
-        content = json.dumps(credential_data, ensure_ascii=False, indent=2)
-        
-        from fastapi.responses import Response
-        return Response(
-            content=content,
-            media_type="application/json",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        log.error(f"下载凭证文件失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/creds/fetch-email/{filename}")
 async def fetch_user_email(filename: str, token: str = Depends(verify_token)):
@@ -1010,49 +978,6 @@ async def refresh_all_user_emails(token: str = Depends(verify_token)):
         
     except Exception as e:
         log.error(f"批量获取用户邮箱失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/creds/download-all")
-async def download_all_creds(token: str = Depends(verify_token)):
-    """打包下载所有凭证文件"""
-    try:
-        # 获取存储适配器
-        storage_adapter = await get_storage_adapter()
-        
-        # 获取所有凭证文件列表
-        credential_filenames = await storage_adapter.list_credentials()
-        
-        if not credential_filenames:
-            raise HTTPException(status_code=404, detail="没有找到凭证文件")
-        
-        # 创建内存中的ZIP文件
-        zip_buffer = io.BytesIO()
-        
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            # 遍历所有凭证文件
-            for filename in credential_filenames:
-                try:
-                    credential_data = await storage_adapter.get_credential(filename)
-                    if credential_data:
-                        # 转换为JSON字符串
-                        content = json.dumps(credential_data, ensure_ascii=False, indent=2)
-                        
-                        # 添加到ZIP文件中
-                        zip_file.writestr(os.path.basename(filename), content)
-                        log.debug(f"已添加到ZIP: {filename}")
-                except Exception as e:
-                    log.warning(f"处理凭证文件 {filename} 时出错: {e}")
-                    continue
-        
-        zip_buffer.seek(0)
-        return Response(
-            content=zip_buffer.getvalue(),
-            media_type="application/zip",
-            headers={"Content-Disposition": "attachment; filename=credentials.zip"}
-        )
-        
-    except Exception as e:
-        log.error(f"打包下载失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -780,8 +780,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 <div style="display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap;">
                     <button class="btn btn-small" onclick="refreshCredsStatus()"
                         style="background-color: #17a2b8;">刷新状态</button>
-                    <button class="btn btn-small" onclick="downloadAllCreds()"
-                        style="background-color: #28a745;">打包下载</button>
                 </div>
 
                 <!-- 批量操作控件 -->
@@ -2417,21 +2415,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     `<button class="btn-small" onclick="credAction('${filename}', 'enable')" style="background-color: #28a745;">启用</button>` :
                     `<button class="btn-small" onclick="credAction('${filename}', 'disable')" style="background-color: #6c757d;">禁用</button>`
                 }
-                    <button class="btn-small" onclick="toggleCredDetails('${pathId}')" style="background-color: #17a2b8;">查看</button>
-                    <button class="btn-small" onclick="downloadCred('${filename}')" style="background-color: #007bff;">下载</button>
                     <button class="btn-small" onclick="fetchUserEmail('${filename}')" style="background-color: #17a2b8;">邮箱</button>
                     <button class="btn-small" onclick="deleteCred('${filename}')" style="background-color: #dc3545;">删除</button>
                 </div>
-                <div id="details-${pathId}" style="display: none; margin-top: 10px; background-color: #f0f8ff; border: 1px solid #b0d4ff; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto;"></div>
             `;
-
-            // 设置文件内容
-            const contentDiv = div.querySelector(`#details-${pathId}`);
-            if (credInfo.content) {
-                contentDiv.textContent = JSON.stringify(credInfo.content, null, 2);
-            } else {
-                contentDiv.textContent = credInfo.error || '无法读取文件内容';
-            }
 
             return div;
         }
@@ -2460,74 +2447,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             } catch (error) {
                 console.error('credAction error:', error);
                 showStatus(`网络错误: ${error.message}`, 'error');
-            }
-        }
-
-        function toggleCredDetails(pathId) {
-            const detailsId = 'details-' + pathId;
-            const details = document.getElementById(detailsId);
-            if (details) {
-                details.style.display = details.style.display === 'none' ? 'block' : 'none';
-            }
-        }
-
-        async function downloadCred(filename) {
-            try {
-                const response = await fetch(`/creds/download/${filename}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showStatus(`已下载文件: ${filename}`, 'success');
-                } else {
-                    const data = await response.json();
-                    showStatus(`下载失败: ${data.error}`, 'error');
-                }
-            } catch (error) {
-                showStatus(`下载失败: ${error.message}`, 'error');
-            }
-        }
-
-        async function downloadAllCreds() {
-            try {
-                const response = await fetch('/creds/download-all', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = 'credentials.zip';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showStatus('已下载所有凭证文件', 'success');
-                } else {
-                    const data = await response.json();
-                    showStatus(`打包下载失败: ${data.error}`, 'error');
-                }
-            } catch (error) {
-                showStatus(`打包下载失败: ${error.message}`, 'error');
             }
         }
 
