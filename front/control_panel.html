@@ -4577,6 +4577,27 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
+        // IP 脱敏函数
+        function maskIP(ip) {
+            // 检测是否是 IPv4
+            if (ip.includes('.')) {
+                const parts = ip.split('.');
+                if (parts.length === 4) {
+                    // 只显示前两段，后两段用 *** 替代
+                    return `${parts[0]}.${parts[1]}.***.***.`;
+                }
+            }
+            // IPv6 或其他格式，只显示前缀
+            if (ip.includes(':')) {
+                const parts = ip.split(':');
+                if (parts.length > 2) {
+                    return `${parts[0]}:${parts[1]}:***:***`;
+                }
+            }
+            // 其他情况，显示前8个字符
+            return ip.length > 8 ? ip.substring(0, 8) + '***' : ip;
+        }
+
         // 创建 IP 卡片
         function createIPCard(ip, stats) {
             const div = document.createElement('div');
@@ -4584,6 +4605,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
             const status = stats.status || 'active';
             const currentRateLimit = stats.rate_limit_seconds || 0;
+            const maskedIP = maskIP(ip);
 
             let statusText = {
                 'active': '活跃',
@@ -4630,7 +4652,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
             div.innerHTML = `
                 <div class="ip-header">
-                    <div class="ip-address">${ip}</div>
+                    <div class="ip-address" title="完整 IP: ${ip}">${maskedIP}</div>
                     <div class="ip-status ${status}">${statusText}</div>
                 </div>
 
