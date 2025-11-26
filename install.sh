@@ -251,16 +251,6 @@ else
     cd ./gcli2api || exit 1
 fi
 
-# Update repository if it's a git repo
-if [ -d ".git" ]; then
-    log_info "Updating repository..."
-    if ! git pull; then
-        log_warn "Git pull failed, continuing anyway..."
-    fi
-else
-    log_warn "Not a git repository, skipping update"
-fi
-
 # Sync dependencies
 log_info "Syncing dependencies with uv..."
 if ! uv sync; then

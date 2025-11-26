@@ -17,6 +17,8 @@ from config import (
     get_available_models,
     is_fake_streaming_model,
     is_anti_truncation_model,
+    is_antigravity_model,
+    get_antigravity_base_model,
     get_base_model_from_feature_model,
     get_anti_truncation_max_attempts,
 )
@@ -73,6 +75,23 @@ async def list_models():
 async def chat_completions(request: Request, token: str = Depends(authenticate)):
     """处理OpenAI格式的聊天完成请求"""
 
+    # ========== IP 拦截和记录 ==========
+    # 获取客户端 IP
+    client_ip = request.client.host if request.client else "unknown"
+
+    # 检查 X-Forwarded-For 和 X-Real-IP 头（支持反向代理）
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    real_ip = request.headers.get("X-Real-IP")
+
+    if forwarded_for:
+        # X-Forwarded-For 可能包含多个 IP，取第一个
+        client_ip = forwarded_for.split(",")[0].strip()
+    elif real_ip:
+        client_ip = real_ip.strip()
+
+    # 获取 User-Agent
+    user_agent = request.headers.get("User-Agent", "unknown")
+
     # 获取原始请求数据
     try:
         raw_data = await request.json()
@@ -86,6 +105,25 @@ async def chat_completions(request: Request, token: str = Depends(authenticate))
     except Exception as e:
         log.error(f"Request validation failed: {e}")
         raise HTTPException(status_code=400, detail=f"Request validation error: {str(e)}")
+
+    # ========== IP 拦截检查（仅检查，不记录） ==========
+    try:
+        from .ip_manager import get_ip_manager
+
+        ip_manager = await get_ip_manager()
+
+        # 仅检查 IP 是否被封禁或限速（不记录请求）
+        allowed = await ip_manager.check_ip_allowed(ip=client_ip)
+
+        if not allowed:
+            log.warning(f"Blocked request from IP: {client_ip}")
+            raise HTTPException(status_code=403, detail="您的 IP 已被封禁或限速，请稍后再试")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        # IP 管理器出错不应该影响正常请求，只记录错误
+        log.error(f"IP manager error: {e}")
 
     # 健康检查
     if (
@@ -132,6 +170,23 @@ async def chat_completions(request: Request, token: str = Depends(authenticate))
 
     # 处理模型名称和功能检测
     model = request_data.model
+
+    # 检测是否是 Antigravity 模型（ANT/ 前缀）
+    if is_antigravity_model(model):
+        log.info(f"Detected Antigravity model: {model}")
+        ant_response = await handle_antigravity_request(request_data)
+
+        # 记录成功的IP请求
+        try:
+            await ip_manager.record_request(
+                ip=client_ip, endpoint="/v1/chat/completions", user_agent=user_agent, model=model
+            )
+        except Exception as e:
+            log.error(f"Failed to record IP request: {e}")
+
+        return ant_response
+
+    # GeminiCLI 模型处理逻辑
     use_fake_streaming = is_fake_streaming_model(model)
     use_anti_truncation = is_anti_truncation_model(model)
 
@@ -166,7 +221,18 @@ async def chat_completions(request: Request, token: str = Depends(authenticate))
     # 处理假流式
     if use_fake_streaming and getattr(request_data, "stream", False):
         request_data.stream = False
-        return await fake_stream_response(api_payload, cred_mgr)
+        fake_stream_resp = await fake_stream_response(api_payload, cred_mgr)
+
+        # 记录成功的IP请求
+        try:
+            model_name = getattr(request_data, "model", "unknown")
+            await ip_manager.record_request(
+                ip=client_ip, endpoint="/v1/chat/completions", user_agent=user_agent, model=model_name
+            )
+        except Exception as e:
+            log.error(f"Failed to record IP request: {e}")
+
+        return fake_stream_resp
 
     # 处理抗截断 (仅流式传输时有效)
     is_streaming = getattr(request_data, "stream", False)
@@ -181,6 +247,15 @@ async def chat_completions(request: Request, token: str = Depends(authenticate))
             max_attempts,
         )
 
+        # 记录成功的IP请求
+        try:
+            model_name = getattr(request_data, "model", "unknown")
+            await ip_manager.record_request(
+                ip=client_ip, endpoint="/v1/chat/completions", user_agent=user_agent, model=model_name
+            )
+        except Exception as e:
+            log.error(f"Failed to record IP request: {e}")
+
         return await convert_streaming_response(gemini_response, model)
     elif use_anti_truncation and not is_streaming:
         log.warning("抗截断功能仅在流式传输时有效，非流式请求将忽略此设置")
@@ -189,6 +264,17 @@ async def chat_completions(request: Request, token: str = Depends(authenticate))
     is_streaming = getattr(request_data, "stream", False)
     log.debug(f"Sending request: streaming={is_streaming}, model={real_model}")
     response = await send_gemini_request(api_payload, is_streaming, cred_mgr)
+
+    # ========== 记录成功的IP请求 ==========
+    # 只有AI成功响应后才记录请求次数
+    try:
+        model_name = getattr(request_data, "model", "unknown")
+        await ip_manager.record_request(
+            ip=client_ip, endpoint="/v1/chat/completions", user_agent=user_agent, model=model_name
+        )
+    except Exception as e:
+        # IP记录失败不影响响应返回
+        log.error(f"Failed to record IP request: {e}")
 
     # 如果是流式响应，直接返回
     if is_streaming:
@@ -460,3 +546,221 @@ async def convert_streaming_response(gemini_response, model: str) -> StreamingRe
             yield "data: [DONE]\n\n".encode()
 
     return StreamingResponse(openai_stream_generator(), media_type="text/event-stream")
+
+
+# ============================================================================
+# Antigravity 模型处理函数
+# ============================================================================
+
+
+async def handle_antigravity_request(request_data: ChatCompletionRequest):
+    """
+    处理 Antigravity 模型（ANT/ 前缀）的请求
+
+    支持自动重试机制：遇到 403/401 等错误时自动切换凭证重试（最多5次）
+
+    Args:
+        request_data: ChatCompletionRequest 对象
+
+    Returns:
+        JSONResponse 或 StreamingResponse
+    """
+    from .antigravity_credential_manager import get_antigravity_credential_manager
+    from antigravity.converter import generate_request_body
+    from antigravity.client import stream_generate_content, convert_sse_to_openai_format, generate_finish_chunk
+    from config import get_proxy_config, get_auto_ban_error_codes
+
+    try:
+        # 获取基础模型名（移除 ANT/ 前缀）
+        base_model = get_antigravity_base_model(request_data.model)
+        log.info(f"Using Antigravity model: {base_model}")
+
+        # 获取 Antigravity 凭证管理器
+        ant_cred_mgr = await get_antigravity_credential_manager()
+
+        # 转换 OpenAI 格式到 Antigravity 格式（这部分不依赖凭证，可以提前准备）
+        # 提取 system_instruction
+        system_instruction = None
+        user_messages = []
+
+        for msg in request_data.messages:
+            if getattr(msg, "role", None) == "system":
+                # 合并所有 system 消息
+                if system_instruction is None:
+                    system_instruction = getattr(msg, "content", "")
+                else:
+                    system_instruction += "\n\n" + getattr(msg, "content", "")
+            else:
+                user_messages.append(msg)
+
+        # 如果没有 system_instruction，使用默认
+        if not system_instruction:
+            system_instruction = "你是一个有帮助的 AI 助手。"
+
+        # 转换消息格式
+        openai_messages = []
+        for msg in user_messages:
+            openai_messages.append({
+                "role": getattr(msg, "role", "user"),
+                "content": getattr(msg, "content", "")
+            })
+
+        # 获取参数
+        parameters = {
+            "temperature": getattr(request_data, "temperature", 1.0),
+            "max_tokens": getattr(request_data, "max_tokens", None),
+            "top_p": getattr(request_data, "top_p", 0.95),
+        }
+
+        # 处理 tools
+        openai_tools = None
+        if hasattr(request_data, "tools") and request_data.tools:
+            openai_tools = request_data.tools
+
+        # 获取代理配置
+        proxy = await get_proxy_config()
+
+        # 处理流式响应
+        is_streaming = getattr(request_data, "stream", False)
+
+        if is_streaming:
+            # 流式响应 - 带重试机制
+            async def antigravity_stream_generator():
+                max_retries = 5
+                auto_ban_error_codes = await get_auto_ban_error_codes()
+
+                for attempt in range(max_retries):
+                    try:
+                        # 获取有效凭证（每次重试都重新获取）
+                        credential_result = await ant_cred_mgr.get_valid_credential(model_name=request_data.model)
+                        if not credential_result:
+                            error_msg = "当前无可用 Antigravity 凭证，请去控制台添加"
+                            log.error(error_msg)
+                            error_chunk = {
+                                "id": f"chatcmpl-ant-{int(time.time() * 1000)}",
+                                "object": "chat.completion.chunk",
+                                "created": int(time.time()),
+                                "model": base_model,
+                                "choices": [{
+                                    "index": 0,
+                                    "delta": {"role": "assistant", "content": f"Error: {error_msg}"},
+                                    "finish_reason": "stop"
+                                }]
+                            }
+                            yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+                            yield "data: [DONE]\n\n".encode()
+                            return
+
+                        account = credential_result["account"]
+                        virtual_filename = credential_result["virtual_filename"]
+                        access_token = account.get("access_token")
+
+                        if not access_token:
+                            log.error(f"Antigravity account {account.get('email')} missing access_token")
+                            await ant_cred_mgr.force_rotate_credential()
+                            continue
+
+                        log.info(f"[Attempt {attempt + 1}/{max_retries}] Using Antigravity account: {account.get('email', 'unknown')}")
+
+                        # 增加调用计数
+                        ant_cred_mgr.increment_call_count()
+
+                        # 生成 Antigravity 请求体
+                        antigravity_payload = generate_request_body(
+                            openai_messages=openai_messages,
+                            model_name=base_model,
+                            parameters=parameters,
+                            openai_tools=openai_tools,
+                            system_instruction=system_instruction
+                        )
+
+                        stream_id = f"chatcmpl-ant-{int(time.time() * 1000)}"
+                        created = int(time.time())
+                        has_tool_calls = False
+                        success = True
+                        error_code = None
+
+                        async for chunk in stream_generate_content(antigravity_payload, access_token, proxy):
+                            # 检测工具调用
+                            if chunk.get('type') == 'tool_calls':
+                                has_tool_calls = True
+
+                            # 转换为 OpenAI 格式
+                            openai_chunk = convert_sse_to_openai_format(chunk, base_model, stream_id, created)
+                            yield openai_chunk.encode()
+
+                        # 发送结束块
+                        finish_chunk = generate_finish_chunk(base_model, has_tool_calls, stream_id, created)
+                        yield finish_chunk.encode()
+
+                        # 标记成功
+                        await ant_cred_mgr.mark_credential_success(virtual_filename)
+
+                        # 记录使用统计
+                        from .antigravity_usage_stats import record_antigravity_call
+                        await record_antigravity_call(virtual_filename, request_data.model)
+
+                        # 成功返回，不再重试
+                        return
+
+                    except Exception as e:
+                        error_message = str(e)
+                        log.error(f"[Attempt {attempt + 1}/{max_retries}] Antigravity streaming error: {error_message}")
+
+                        # 提取错误码
+                        error_code = None
+                        if "403" in error_message or "403 Forbidden" in error_message:
+                            error_code = 403
+                        elif "401" in error_message or "401 Unauthorized" in error_message:
+                            error_code = 401
+                        elif "404" in error_message:
+                            error_code = 404
+
+                        # 标记凭证错误（会自动禁用）
+                        if error_code and credential_result:
+                            await ant_cred_mgr.mark_credential_error(virtual_filename, error_code)
+
+                        # 检查是否需要重试
+                        is_auto_ban_error = error_code in auto_ban_error_codes if error_code else False
+
+                        if is_auto_ban_error and attempt < max_retries - 1:
+                            # 403/401 等错误：切换凭证并重试
+                            log.warning(f"[RETRY] {error_code} error encountered, rotating credential and retrying ({attempt + 1}/{max_retries})")
+                            await ant_cred_mgr.force_rotate_credential()
+                            await asyncio.sleep(0.5)  # 短暂延迟后重试
+                            continue
+                        else:
+                            # 不可重试的错误，或者重试次数用尽
+                            if attempt == max_retries - 1:
+                                log.error(f"Max retries ({max_retries}) exhausted for Antigravity request")
+
+                            # 发送错误块
+                            error_chunk = {
+                                "id": f"chatcmpl-ant-{int(time.time() * 1000)}",
+                                "object": "chat.completion.chunk",
+                                "created": int(time.time()),
+                                "model": base_model,
+                                "choices": [{
+                                    "index": 0,
+                                    "delta": {"role": "assistant", "content": f"Error: {error_message}"},
+                                    "finish_reason": "stop"
+                                }]
+                            }
+                            yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+                            yield "data: [DONE]\n\n".encode()
+                            return
+
+            return StreamingResponse(antigravity_stream_generator(), media_type="text/event-stream")
+
+        else:
+            # 非流式响应
+            # TODO: 实现非流式响应（暂时返回错误）
+            raise HTTPException(status_code=501, detail="Antigravity non-streaming mode not implemented yet")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Antigravity request error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Antigravity request failed: {str(e)}")

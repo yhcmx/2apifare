@@ -313,11 +313,51 @@ class FileStorageManager:
             return False
 
     async def get_credential(self, filename: str) -> Optional[Dict[str, Any]]:
-        """从统一缓存获取凭证数据"""
+        """从统一缓存获取凭证数据（支持 accounts.toml）"""
         self._ensure_initialized()
 
         try:
             filename = self._normalize_filename(filename)
+
+            # 特殊处理 userID_ 前缀（Antigravity 单个账户）
+            if filename.startswith("userID_"):
+                user_id = filename.replace("userID_", "")
+                accounts_toml_path = os.path.join(self._credentials_dir, "accounts.toml")
+
+                if os.path.exists(accounts_toml_path):
+                    import toml
+                    # 使用异步读取，避免缓存问题
+                    async with aiofiles.open(accounts_toml_path, 'r', encoding='utf-8') as f:
+                        content = await f.read()
+                    accounts_data = toml.loads(content)
+
+                    # 查找匹配的账户
+                    if 'accounts' in accounts_data:
+                        for account in accounts_data['accounts']:
+                            if account.get('user_id') == user_id:
+                                log.info(f"Found account for user_id: {user_id}, email: {account.get('email')}, disabled: {account.get('disabled')}")
+                                return account  # 返回单个账户的凭证数据
+
+                    log.warning(f"Account not found for user_id: {user_id}")
+                    return None
+                else:
+                    log.warning(f"accounts.toml not found at {accounts_toml_path}")
+                    return None
+
+            # 特殊处理 accounts.toml（Antigravity 凭证 - 向后兼容）
+            if "accounts.toml" in filename:
+                accounts_toml_path = os.path.join(self._credentials_dir, "accounts.toml")
+                if os.path.exists(accounts_toml_path):
+                    import toml
+                    with open(accounts_toml_path, 'r', encoding='utf-8') as f:
+                        accounts_data = toml.load(f)
+                    log.debug(f"Loaded accounts.toml with {len(accounts_data.get('accounts', []))} accounts")
+                    return accounts_data  # 返回整个 accounts 数据结构
+                else:
+                    log.warning(f"accounts.toml not found at {accounts_toml_path}")
+                    return None
+
+            # 从 creds.toml 缓存获取 CLI 凭证数据
             all_data = await self._credentials_cache_manager.get_all()
 
             if filename not in all_data:
@@ -334,23 +374,50 @@ class FileStorageManager:
             return None
 
     async def list_credentials(self) -> List[str]:
-        """从统一缓存列出所有凭证文件名"""
+        """从统一缓存列出所有凭证文件名（包括 accounts.toml 中的每个账户）"""
         self._ensure_initialized()
 
         try:
             all_data = await self._credentials_cache_manager.get_all()
-            return list(all_data.keys())
+            cred_list = list(all_data.keys())
+
+            # 检查 accounts.toml 是否存在（Antigravity 凭证）
+            accounts_toml_path = os.path.join(self._credentials_dir, "accounts.toml")
+            if os.path.exists(accounts_toml_path):
+                try:
+                    import toml
+                    with open(accounts_toml_path, 'r', encoding='utf-8') as f:
+                        accounts_data = toml.load(f)
+
+                    # 为每个账户创建虚拟文件名（使用 userID_ 格式）
+                    if 'accounts' in accounts_data and len(accounts_data['accounts']) > 0:
+                        for account in accounts_data['accounts']:
+                            user_id = account.get('user_id')
+                            if user_id:
+                                virtual_filename = f"userID_{user_id}"
+                                cred_list.append(virtual_filename)
+                        log.debug(f"Added {len(accounts_data['accounts'])} accounts from accounts.toml")
+                except Exception as e:
+                    log.warning(f"Error reading accounts.toml: {e}")
+
+            return cred_list
 
         except Exception as e:
             log.error(f"Error listing credentials: {e}")
             return []
 
     async def delete_credential(self, filename: str) -> bool:
-        """从统一缓存删除凭证"""
+        """从统一缓存删除凭证（支持 userID_ 前缀）"""
         self._ensure_initialized()
 
         try:
             filename = self._normalize_filename(filename)
+
+            # 特殊处理 userID_ 前缀（Antigravity 账户）
+            if filename.startswith("userID_"):
+                return await self._delete_antigravity_account(filename)
+
+            # CLI 凭证删除逻辑
             success = await self._credentials_cache_manager.delete(filename)
             log.debug(f"Deleted credential from unified cache: {filename}")
             return success
@@ -359,14 +426,171 @@ class FileStorageManager:
             log.error(f"Error deleting credential {filename}: {e}")
             return False
 
+    # ============ Antigravity 账户状态管理辅助方法 ============
+
+    async def _update_antigravity_account_state(self, filename: str, state_updates: Dict[str, Any]) -> bool:
+        """更新 accounts.toml 中单个账户的状态"""
+        try:
+            user_id = filename.replace("userID_", "")
+            accounts_toml_path = os.path.join(self._credentials_dir, "accounts.toml")
+
+            if not os.path.exists(accounts_toml_path):
+                log.warning(f"accounts.toml not found at {accounts_toml_path}")
+                return False
+
+            # 读取 accounts.toml
+            async with aiofiles.open(accounts_toml_path, "r", encoding="utf-8") as f:
+                content = await f.read()
+            accounts_data = toml.loads(content)
+
+            if 'accounts' not in accounts_data:
+                log.warning("No accounts found in accounts.toml")
+                return False
+
+            # 查找并更新对应账户
+            account_found = False
+            for account in accounts_data['accounts']:
+                if account.get('user_id') == user_id:
+                    # 记录更新前的值
+                    old_disabled = account.get('disabled')
+
+                    # 直接更新状态字段（统一使用 disabled）
+                    account.update(state_updates)
+                    account_found = True
+
+                    # 记录更新后的值
+                    new_disabled = account.get('disabled')
+                    log.info(f"Updated antigravity account state for user_id: {user_id}")
+                    log.info(f"  Updates: {state_updates}")
+                    log.info(f"  disabled: {old_disabled} -> {new_disabled}")
+                    log.info(f"  email: {account.get('email')}")
+                    break
+
+            if not account_found:
+                log.warning(f"Account not found for user_id: {user_id}")
+                return False
+
+            # 写回 accounts.toml
+            toml_content = toml.dumps(accounts_data)
+            log.info(f"Writing to {accounts_toml_path}, content length: {len(toml_content)} bytes")
+
+            async with aiofiles.open(accounts_toml_path, "w", encoding="utf-8") as f:
+                await f.write(toml_content)
+
+            log.info(f"Successfully saved updated accounts.toml for user_id: {user_id}")
+
+            # 验证写入：重新读取文件确认
+            async with aiofiles.open(accounts_toml_path, "r", encoding="utf-8") as f:
+                verify_content = await f.read()
+            verify_data = toml.loads(verify_content)
+            for acc in verify_data.get('accounts', []):
+                if acc.get('user_id') == user_id:
+                    log.info(f"Verified: disabled = {acc.get('disabled')}")
+                    break
+
+            return True
+
+        except Exception as e:
+            log.error(f"Error updating antigravity account state {filename}: {e}")
+            return False
+
+    async def _update_antigravity_account_usage(self, filename: str, stats_updates: Dict[str, Any]) -> bool:
+        """更新 accounts.toml 中单个账户的使用统计"""
+        # 复用状态更新方法
+        return await self._update_antigravity_account_state(filename, stats_updates)
+
+    async def _delete_antigravity_account(self, filename: str) -> bool:
+        """
+        从 accounts.toml 中删除单个账户，并备份整个 accounts.toml 文件
+
+        备份机制（与 CLI 一致）：
+        - 在 creds/Antbackup/ 目录下创建备份
+        - 备份文件名：accounts_{删除后剩余数量}_{时间戳}.toml.bak
+        - 备份整个 accounts.toml 文件的快照
+        """
+        try:
+            user_id = filename.replace("userID_", "")
+            accounts_toml_path = os.path.join(self._credentials_dir, "accounts.toml")
+
+            if not os.path.exists(accounts_toml_path):
+                log.warning(f"accounts.toml not found at {accounts_toml_path}")
+                return False
+
+            # 读取 accounts.toml
+            async with aiofiles.open(accounts_toml_path, "r", encoding="utf-8") as f:
+                content = await f.read()
+            accounts_data = toml.loads(content)
+
+            if 'accounts' not in accounts_data:
+                log.warning("No accounts found in accounts.toml")
+                return False
+
+            # 查找要删除的账户
+            deleted_account = None
+            for acc in accounts_data['accounts']:
+                if acc.get('user_id') == user_id:
+                    deleted_account = acc
+                    break
+
+            if not deleted_account:
+                log.warning(f"Account not found for deletion: user_id={user_id}")
+                return False
+
+            # 创建备份目录
+            backup_dir = os.path.join(self._credentials_dir, "Antbackup")
+            os.makedirs(backup_dir, exist_ok=True)
+
+            # 计算删除后的账户数量
+            accounts_count_after_delete = len(accounts_data['accounts']) - 1
+
+            # 生成备份文件名（与 CLI 格式一致）：accounts_{删除后数量}_{时间戳}.toml.bak
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            backup_filename = f"accounts_{accounts_count_after_delete}_{timestamp}.toml.bak"
+            backup_path = os.path.join(backup_dir, backup_filename)
+
+            # 备份整个 accounts.toml 文件（与 CLI 一致）
+            import shutil
+            shutil.copy2(accounts_toml_path, backup_path)
+            log.info(f"accounts.toml backed up to: {backup_path}")
+
+            # 从 accounts.toml 中删除账户
+            accounts_data['accounts'] = [
+                acc for acc in accounts_data['accounts']
+                if acc.get('user_id') != user_id
+            ]
+
+            # 写回 accounts.toml
+            toml_content = toml.dumps(accounts_data)
+            async with aiofiles.open(accounts_toml_path, "w", encoding="utf-8") as f:
+                await f.write(toml_content)
+
+            log.info(f"Deleted antigravity account: user_id={user_id}, email={deleted_account.get('email', 'unknown')}")
+            return True
+
+        except Exception as e:
+            log.error(f"Error deleting antigravity account {filename}: {e}")
+            return False
+
     # ============ 状态管理 ============
 
     async def update_credential_state(self, filename: str, state_updates: Dict[str, Any]) -> bool:
-        """更新凭证状态"""
+        """更新凭证状态（支持 userID_ 前缀）"""
         self._ensure_initialized()
 
         try:
             filename = self._normalize_filename(filename)
+
+            # 特殊处理 userID_ 前缀（Antigravity 账户）
+            if filename.startswith("userID_"):
+                return await self._update_antigravity_account_state(filename, state_updates)
+
+            # 拦截 accounts.toml（这是单独的文件，不应该写入 creds.toml）
+            if "accounts.toml" in filename.lower():
+                log.warning(f"Attempted to update accounts.toml in creds.toml, ignoring: {filename}")
+                return False
+
+            # CLI 凭证的更新逻辑
             all_data = await self._credentials_cache_manager.get_all()
 
             if filename not in all_data:
@@ -386,11 +610,110 @@ class FileStorageManager:
             return False
 
     async def get_credential_state(self, filename: str) -> Dict[str, Any]:
-        """从统一缓存获取凭证状态"""
+        """从统一缓存获取凭证状态（支持 accounts.toml）"""
         self._ensure_initialized()
 
         try:
             filename = self._normalize_filename(filename)
+
+            # 特殊处理 userID_ 前缀（Antigravity 单个账户）
+            if filename.startswith("userID_"):
+                user_id = filename.replace("userID_", "")
+                accounts_toml_path = os.path.join(self._credentials_dir, "accounts.toml")
+
+                if os.path.exists(accounts_toml_path):
+                    try:
+                        import toml
+                        # 使用异步读取，避免缓存问题
+                        async with aiofiles.open(accounts_toml_path, 'r', encoding='utf-8') as f:
+                            content = await f.read()
+                        accounts_data = toml.loads(content)
+
+                        # 查找匹配的账户
+                        if 'accounts' in accounts_data:
+                            for account in accounts_data['accounts']:
+                                if account.get('user_id') == user_id:
+                                    # 构建状态数据，记录缺失字段
+                                    state_data = {}
+
+                                    # 必需字段
+                                    state_data['user_email'] = account.get('email')
+
+                                    # disabled 字段
+                                    if 'disabled' in account:
+                                        state_data['disabled'] = account['disabled']
+                                        log.info(f"Account {user_id} state - disabled: {account['disabled']}, email: {account.get('email')}")
+                                    else:
+                                        log.debug(f"Account {user_id} missing 'disabled' field, using False")
+                                        state_data['disabled'] = False
+
+                                    # error_codes 字段
+                                    if 'error_codes' in account:
+                                        state_data['error_codes'] = account['error_codes']
+                                    else:
+                                        log.debug(f"Account {user_id} missing 'error_codes' field, initializing to []")
+                                        state_data['error_codes'] = []
+
+                                    # last_success 字段
+                                    if 'last_success' in account:
+                                        state_data['last_success'] = account['last_success']
+                                    else:
+                                        log.debug(f"Account {user_id} missing 'last_success' field, using current time")
+                                        state_data['last_success'] = time.time()
+
+                                    # Antigravity 只需要核心状态字段，不需要 CLI 的统计字段
+                                    return state_data
+
+                        log.warning(f"Account not found for user_id: {user_id}")
+                    except Exception as e:
+                        log.warning(f"Error reading accounts.toml for user_id {user_id}: {e}")
+
+                # 返回默认状态
+                return self.get_default_state()
+
+            # 特殊处理 accounts.toml（Antigravity 凭证）
+            if "accounts.toml" in filename:
+                # 为 accounts.toml 返回默认状态，但标记为已启用
+                accounts_toml_path = os.path.join(self._credentials_dir, "accounts.toml")
+                if os.path.exists(accounts_toml_path):
+                    # 尝试从 accounts.toml 中读取所有账户的邮箱信息
+                    try:
+                        import toml
+                        with open(accounts_toml_path, 'r', encoding='utf-8') as f:
+                            accounts_data = toml.load(f)
+
+                        # 获取所有账户的邮箱信息
+                        user_email = None
+                        if 'accounts' in accounts_data and len(accounts_data['accounts']) > 0:
+                            accounts = accounts_data['accounts']
+                            # 收集所有邮箱（过滤掉空值）
+                            emails = [acc.get('email') for acc in accounts if acc.get('email')]
+
+                            if len(emails) > 0:
+                                if len(emails) == 1:
+                                    # 只有一个账户，直接显示邮箱
+                                    user_email = emails[0]
+                                else:
+                                    # 多个账户，显示数量和前两个邮箱
+                                    if len(emails) <= 2:
+                                        user_email = f"{len(emails)} 个账户: {', '.join(emails)}"
+                                    else:
+                                        user_email = f"{len(emails)} 个账户: {emails[0]}, {emails[1]}, ..."
+
+                        # Antigravity 只返回核心状态字段
+                        return {
+                            "error_codes": [],
+                            "disabled": False,
+                            "last_success": time.time(),
+                            "user_email": user_email,
+                        }
+                    except Exception as e:
+                        log.warning(f"Error reading accounts.toml for state: {e}")
+
+                # 返回默认状态
+                return self.get_default_state()
+
+            # 从 creds.toml 缓存获取 CLI 凭证状态
             all_data = await self._credentials_cache_manager.get_all()
 
             if filename not in all_data:
@@ -422,13 +745,15 @@ class FileStorageManager:
             return self.get_default_state()
 
     async def get_all_credential_states(self) -> Dict[str, Dict[str, Any]]:
-        """从统一缓存获取所有凭证状态"""
+        """从统一缓存获取所有凭证状态（包括 accounts.toml）"""
         self._ensure_initialized()
 
         try:
             all_data = await self._credentials_cache_manager.get_all()
 
             states = {}
+
+            # 处理 CLI 凭证状态（来自 creds.toml）
             for filename, section_data in all_data.items():
                 # 提取状态字段
                 state_data = {k: v for k, v in section_data.items() if k in self.STATE_FIELDS}
@@ -442,6 +767,31 @@ class FileStorageManager:
                         state_data[field] = default_state[field]
 
                 states[filename] = state_data
+
+            # 处理 Antigravity 账户状态（来自 accounts.toml）
+            accounts_toml_path = os.path.join(self._credentials_dir, "accounts.toml")
+            if os.path.exists(accounts_toml_path):
+                try:
+                    async with aiofiles.open(accounts_toml_path, 'r', encoding='utf-8') as f:
+                        content = await f.read()
+                    accounts_data = toml.loads(content)
+
+                    if 'accounts' in accounts_data:
+                        for account in accounts_data['accounts']:
+                            user_id = account.get('user_id')
+                            if user_id:
+                                virtual_filename = f"userID_{user_id}"
+                                # 只提取 Antigravity 需要的核心状态字段（不要 CLI 的统计字段）
+                                state_data = {
+                                    'disabled': account.get('disabled', False),
+                                    'error_codes': account.get('error_codes', []),
+                                    'last_success': account.get('last_success', time.time()),
+                                    'user_email': account.get('email'),
+                                }
+                                states[virtual_filename] = state_data
+                        log.debug(f"Added states for {len(accounts_data['accounts'])} Antigravity accounts")
+                except Exception as e:
+                    log.warning(f"Error reading accounts.toml states: {e}")
 
             return states
 
@@ -474,11 +824,22 @@ class FileStorageManager:
     # ============ 使用统计管理 ============
 
     async def update_usage_stats(self, filename: str, stats_updates: Dict[str, Any]) -> bool:
-        """更新使用统计"""
+        """更新使用统计（支持 userID_ 前缀）"""
         self._ensure_initialized()
 
         try:
             filename = self._normalize_filename(filename)
+
+            # 特殊处理 userID_ 前缀（Antigravity 账户）
+            if filename.startswith("userID_"):
+                return await self._update_antigravity_account_usage(filename, stats_updates)
+
+            # 拦截 accounts.toml（这是单独的文件，不应该写入 creds.toml）
+            if "accounts.toml" in filename.lower():
+                log.warning(f"Attempted to update accounts.toml usage stats in creds.toml, ignoring: {filename}")
+                return False
+
+            # CLI 凭证的更新逻辑
             all_data = await self._credentials_cache_manager.get_all()
 
             if filename not in all_data:
@@ -578,6 +939,58 @@ class FileStorageManager:
         except Exception as e:
             log.error(f"Error getting all usage stats: {e}")
             return {}
+
+    # ============ Antigravity 凭证管理 ============
+
+    async def load_antigravity_accounts(self) -> Dict[str, Any]:
+        """加载 Antigravity accounts.toml"""
+        self._ensure_initialized()
+
+        try:
+            accounts_file = os.path.join(self._credentials_dir, "accounts.toml")
+
+            # 检查文件是否存在
+            if not os.path.exists(accounts_file):
+                log.debug(f"Antigravity accounts file not found: {accounts_file}")
+                return {"accounts": []}
+
+            # 读取文件
+            async with aiofiles.open(accounts_file, "r", encoding="utf-8") as f:
+                content = await f.read()
+
+            if not content.strip():
+                return {"accounts": []}
+
+            # 解析 TOML
+            accounts_data = toml.loads(content)
+
+            log.debug(f"Loaded {len(accounts_data.get('accounts', []))} Antigravity accounts")
+            return accounts_data
+
+        except Exception as e:
+            log.error(f"Error loading Antigravity accounts: {e}")
+            return {"accounts": []}
+
+    async def save_antigravity_accounts(self, accounts_data: Dict[str, Any]) -> bool:
+        """保存 Antigravity accounts.toml"""
+        self._ensure_initialized()
+
+        try:
+            accounts_file = os.path.join(self._credentials_dir, "accounts.toml")
+
+            # 转换为 TOML 格式
+            toml_content = toml.dumps(accounts_data)
+
+            # 写入文件
+            async with aiofiles.open(accounts_file, "w", encoding="utf-8") as f:
+                await f.write(toml_content)
+
+            log.debug(f"Saved {len(accounts_data.get('accounts', []))} Antigravity accounts")
+            return True
+
+        except Exception as e:
+            log.error(f"Error saving Antigravity accounts: {e}")
+            return False
 
     # ============ 工具方法 ============
 

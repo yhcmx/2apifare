@@ -43,7 +43,10 @@ def _create_error_response(message: str, status_code: int = 500) -> Response:
 
 
 async def _handle_api_error(
-    credential_manager: CredentialManager, status_code: int, response_content: str = ""
+    credential_manager: CredentialManager,
+    status_code: int,
+    response_content: str = "",
+    current_credential_file: str = None
 ):
     """Handle API errors by rotating credentials when needed. Error recording should be done before calling this function."""
     if status_code == 429 and credential_manager:
@@ -55,7 +58,7 @@ async def _handle_api_error(
             log.error("Google API returned status 429 - quota exhausted, switching credentials")
         await credential_manager.force_rotate_credential()
 
-    # 处理自动封禁的错误码
+    # 处理自动封禁的错误码（403, 401等永久性错误）
     elif (
         await get_auto_ban_enabled()
         and status_code in await get_auto_ban_error_codes()
@@ -67,8 +70,15 @@ async def _handle_api_error(
             )
         else:
             log.warning(
-                f"Google API returned status {status_code} - auto ban triggered, rotating credentials"
+                f"Google API returned status {status_code} - auto ban triggered"
             )
+
+        # 禁用出错的凭证（403等是永久性错误）
+        if current_credential_file:
+            log.warning(f"Disabling credential due to {status_code} error: {current_credential_file}")
+            await credential_manager.set_cred_disabled(current_credential_file, True)
+
+        # 切换到下一个凭证
         await credential_manager.force_rotate_credential()
 
 
@@ -267,9 +277,33 @@ async def send_gemini_request(
                             pass
                         await client.aclose()
 
-                        # 处理凭证轮换
+                        # 检查是否是自动封禁错误码（403, 401等）且可以重试
+                        auto_ban_error_codes = await get_auto_ban_error_codes()
+                        is_auto_ban_error = resp.status_code in auto_ban_error_codes
+
+                        if is_auto_ban_error and credential_manager and attempt < max_retries:
+                            # 403/401等错误：切换凭证并重试
+                            log.warning(
+                                f"[RETRY] {resp.status_code} error encountered, rotating credential and retrying ({attempt + 1}/{max_retries})"
+                            )
+                            await credential_manager.force_rotate_credential()
+                            # 重新获取凭证和headers
+                            new_credential_result = await credential_manager.get_valid_credential()
+                            if new_credential_result:
+                                current_file, credential_data = new_credential_result
+                                headers, updated_payload, target_url = (
+                                    await _prepare_request_headers_and_payload(
+                                        payload, credential_data, use_public_api, target_url
+                                    )
+                                )
+                                final_post_data = json.dumps(updated_payload)
+                            await asyncio.sleep(0.5)  # 短暂延迟后重试
+                            continue  # 继续循环重试
+
+                        # 如果不是自动封禁错误，或已达到最大重试次数，返回错误
+                        # 处理凭证轮换（记录错误并禁用凭证）
                         await _handle_api_error(
-                            credential_manager, resp.status_code, response_content
+                            credential_manager, resp.status_code, response_content, current_file
                         )
 
                         # 返回错误流
@@ -347,7 +381,37 @@ async def send_gemini_request(
                                 "429 rate limit exceeded, max retries reached", 429
                             )
                     else:
-                        # 非429错误或成功响应，正常处理
+                        # 非429错误或成功响应，检查是否需要重试
+                        if resp.status_code != 200:
+                            # 检查是否是自动封禁错误码（403, 401等）
+                            auto_ban_error_codes = await get_auto_ban_error_codes()
+                            is_auto_ban_error = resp.status_code in auto_ban_error_codes
+
+                            if is_auto_ban_error and credential_manager and attempt < max_retries:
+                                # 记录错误
+                                if current_file:
+                                    await credential_manager.record_api_call_result(
+                                        current_file, False, resp.status_code
+                                    )
+                                # 403/401等错误：切换凭证并重试
+                                log.warning(
+                                    f"[RETRY] {resp.status_code} error encountered, rotating credential and retrying ({attempt + 1}/{max_retries})"
+                                )
+                                await credential_manager.force_rotate_credential()
+                                # 重新获取凭证和headers
+                                new_credential_result = await credential_manager.get_valid_credential()
+                                if new_credential_result:
+                                    current_file, credential_data = new_credential_result
+                                    headers, updated_payload, target_url = (
+                                        await _prepare_request_headers_and_payload(
+                                            payload, credential_data, use_public_api, target_url
+                                        )
+                                    )
+                                    final_post_data = json.dumps(updated_payload)
+                                await asyncio.sleep(0.5)  # 短暂延迟后重试
+                                continue  # 继续循环重试
+
+                        # 不是自动封禁错误，或已达到最大重试次数，正常处理
                         return await _handle_non_streaming_response(
                             resp, credential_manager, payload.get("model", ""), current_file
                         )
@@ -422,7 +486,7 @@ def _handle_streaming_response_managed(
                     current_file, False, resp.status_code
                 )
 
-            await _handle_api_error(credential_manager, resp.status_code, response_content)
+            await _handle_api_error(credential_manager, resp.status_code, response_content, current_file)
 
             error_response = {
                 "error": {
@@ -571,7 +635,7 @@ async def _handle_non_streaming_response(
         if credential_manager and current_file:
             await credential_manager.record_api_call_result(current_file, False, resp.status_code)
 
-        await _handle_api_error(credential_manager, resp.status_code, response_content)
+        await _handle_api_error(credential_manager, resp.status_code, response_content, current_file)
 
         return _create_error_response(f"API error: {resp.status_code}", resp.status_code)
 

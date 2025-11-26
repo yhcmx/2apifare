@@ -110,6 +110,10 @@ app.include_router(gemini_router, prefix="", tags=["Gemini Native API"])
 # Web路由 - 包含认证、凭证管理和控制面板功能
 app.include_router(web_router, prefix="", tags=["Web Interface"])
 
+# Antigravity 认证路由
+from antigravity.api import router as antigravity_router
+app.include_router(antigravity_router, prefix="/antigravity", tags=["Antigravity Auth"])
+
 # 静态文件路由 - 服务docs目录下的文件（如捐赠图片）
 app.mount("/docs", StaticFiles(directory="docs"), name="docs")
 

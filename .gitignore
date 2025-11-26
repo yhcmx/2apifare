@@ -93,3 +93,6 @@ log.txt
 *.tmp
 *.temp
 *.bak
+
+# Node modules
+node_modules/

@@ -500,11 +500,11 @@
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('oauth')">OAuth认证</button>
                 <button class="tab" onclick="switchTab('upload')">批量上传</button>
-                <button class="tab" onclick="switchTab('envload')">环境变量</button>
+                <!-- <button class="tab" onclick="switchTab('envload')">环境变量</button> -->
                 <button class="tab" onclick="switchTab('manage')">文件管理</button>
                 <button class="tab" onclick="switchTab('usage')">使用统计</button>
                 <button class="tab" onclick="switchTab('config')">配置管理</button>
-                <button class="tab" onclick="switchTab('logs')">实时日志</button>
+                <!-- <button class="tab" onclick="switchTab('logs')">实时日志</button> -->
                 <button class="tab" onclick="switchTab('about')">项目信息</button>
             </div>
 
@@ -679,11 +679,12 @@
                 </div>
             </div>
 
+            <!--
             <div id="envloadTab" class="tab-content">
                 <h3>环境变量凭证导入</h3>
                 <p>从环境变量批量导入认证文件，支持部署自动化场景</p>
 
-                <!-- 环境变量状态信息 -->
+                <-- 环境变量状态信息 --
                 <div id="envStatusSection">
                     <div class="loading" id="envStatusLoading">正在检查环境变量状态...</div>
                     <div id="envStatusContent" class="hidden">
@@ -717,7 +718,7 @@
                     </div>
                 </div>
 
-                <!-- 操作按钮 -->
+                <-- 操作按钮 --
                 <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
                     <button class="btn btn-small" onclick="checkEnvCredsStatus()"
                         style="background-color: #17a2b8;">刷新状态</button>
@@ -726,7 +727,7 @@
                         onclick="clearEnvCredentials()">清除环境变量文件</button>
                 </div>
 
-                <!-- 使用说明 -->
+                <-- 使用说明 --
                 <div class="card">
                     <h4 style="margin-top: 0; margin-bottom: 15px;">使用说明</h4>
                     <div
@@ -756,6 +757,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     </div>
                 </div>
             </div>
+            -->
 
             <div id="manageTab" class="tab-content">
                 <h3>凭证文件管理</h3>
@@ -811,7 +813,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     style="background-color: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 8px; padding: 12px; margin: 15px 0;">
                     <div class="form-group">
                         <label for="statusFilter">状态筛选：</label>
-                        <select id="statusFilter" onchange="applyFilters()">
+                        <select id="statusFilter" onchange="applyFilters(true)">
                             <option value="all">全部</option>
                             <option value="normal">正常</option>
                             <option value="disabled">禁用</option>
@@ -820,7 +822,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="errorCodeFilter">错误码筛选：</label>
-                        <select id="errorCodeFilter" onchange="applyFilters()">
+                        <select id="errorCodeFilter" onchange="applyFilters(true)">
                             <option value="all">全部错误码</option>
                             <option value="no-errors">无错误</option>
                             <option value="has-errors">有错误</option>
@@ -1002,6 +1004,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div class="card">
                             <h4 style="margin-top: 0; margin-bottom: 15px;">端点配置</h4>
 
+                            <!-- GeminiCLI 端点配置 -->
+                            <h5 style="margin-top: 10px; margin-bottom: 10px; color: #666; font-size: 14px;">GeminiCLI 端点配置</h5>
+
                             <!-- 快速配置按钮 -->
                             <div class="form-group">
                                 <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
@@ -1054,6 +1059,41 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                                     placeholder="https://serviceusage.googleapis.com" />
                                 <small style="display: block; color: #666; font-size: 12px; margin-top: 5px;">Google
                                     Cloud Service Usage API端点地址，用于服务启用管理</small>
+                            </div>
+
+                            <!-- Antigravity 端点配置 -->
+                            <h5 style="margin-top: 20px; margin-bottom: 10px; color: #666; font-size: 14px;">Antigravity 端点配置 (Gemini 3.0)</h5>
+
+                            <!-- Antigravity 快速配置按钮 -->
+                            <div class="form-group">
+                                <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+                                    <button type="button" class="btn" onclick="restoreAntigravityOfficialUrls()"
+                                        style="background-color: #17a2b8; font-size: 13px; flex: 1; min-width: 120px;">
+                                        🔄 还原官方端点
+                                    </button>
+                                </div>
+                                <small style="display: block; color: #666; font-size: 11px; margin-bottom: 10px;">后面凭证很多，同一个IP请求多个凭证会有风控，可自定义代理端点</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="antigravityApiEndpoint">Antigravity API Endpoint:</label>
+                                <input type="text" id="antigravityApiEndpoint"
+                                    placeholder="https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse" />
+                                <small style="display: block; color: #666; font-size: 12px; margin-top: 5px;">Antigravity 流式生成内容的 API 端点</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="antigravityModelsEndpoint">Antigravity Models Endpoint:</label>
+                                <input type="text" id="antigravityModelsEndpoint"
+                                    placeholder="https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels" />
+                                <small style="display: block; color: #666; font-size: 12px; margin-top: 5px;">获取 Antigravity 可用模型列表的端点</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="antigravityOauthEndpoint">Antigravity OAuth Endpoint:</label>
+                                <input type="text" id="antigravityOauthEndpoint"
+                                    placeholder="https://oauth2.googleapis.com/token" />
+                                <small style="display: block; color: #666; font-size: 12px; margin-top: 5px;">刷新 Antigravity access token 的 OAuth 端点</small>
                             </div>
                         </div>
 
@@ -1186,6 +1226,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 </div>
             </div>
 
+            <!--
             <div id="logsTab" class="tab-content">
                 <h3>实时日志</h3>
                 <p>查看服务器实时运行日志，支持筛选和搜索</p>
@@ -1198,7 +1239,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         style="background-color: #007bff;">下载日志</button>
                 </div>
 
-                <!-- 日志筛选控件 -->
+                <-- 日志筛选控件 --
                 <div
                     style="background-color: #f8f9fa; border: 1px solid #e1e4e8; border-radius: 8px; padding: 12px; margin: 15px 0;">
                     <div class="form-group" style="margin-bottom: 8px;">
@@ -1226,7 +1267,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     </div>
                 </div>
 
-                <!-- 日志显示区域 -->
+                <-- 日志显示区域 --
                 <div id="logContainer"
                     style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; border-radius: 8px; padding: 15px; height: 400px; overflow-y: auto; border: 1px solid #333; white-space: pre-wrap; word-break: break-all;">
                     <div id="logMessages">点击"启动日志流"开始查看实时日志...</div>
@@ -1238,7 +1279,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     <span>显示: <span id="filteredLogCount">0</span> 条</span>
                 </div>
 
-                <!-- 日志相关说明 -->
+                <-- 日志相关说明 --
                 <div class="card" style="margin-top: 15px;">
                     <h4 style="margin-top: 0; margin-bottom: 15px;">日志说明</h4>
                     <div
@@ -1263,6 +1304,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     </div>
                 </div>
             </div>
+            -->
 
             <!-- 项目信息标签页 -->
             <div id="aboutTab" class="tab-content">
@@ -1472,7 +1514,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
             // 如果切换到文件管理页面，自动加载数据
             if (tabName === 'manage') {
-                refreshCredsStatus();
+                refreshCredsStatus(true); // 切换标签页时重置到第一页
             }
             // 如果切换到使用统计页面，自动加载统计
             if (tabName === 'usage') {
@@ -2122,7 +2164,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         // 凭证文件管理相关函数
-        async function refreshCredsStatus() {
+        async function refreshCredsStatus(resetPage = false) {
             const credsLoading = document.getElementById('credsLoading');
             const credsList = document.getElementById('credsList');
 
@@ -2146,9 +2188,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     // 更新统计显示
                     updateStatsDisplay();
 
-                    // 应用筛选并显示第一页
-                    currentPage = 1;
-                    applyFilters();
+                    // 应用筛选，根据参数决定是否重置页码
+                    applyFilters(resetPage);
 
                     showStatus(`已加载 ${Object.keys(credsData).length} 个凭证文件`, 'success');
                 } else {
@@ -2224,16 +2265,21 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // 按错误码快速筛选
         function filterByErrorCode(code) {
             document.getElementById('errorCodeFilter').value = code.toString();
-            applyFilters();
+            applyFilters(true); // 筛选条件改变时重置到第一页
         }
 
         // 应用筛选
-        function applyFilters() {
+        function applyFilters(resetPage = false) {
             const statusFilter = document.getElementById('statusFilter').value;
             const errorCodeFilter = document.getElementById('errorCodeFilter').value;
             currentFilter = statusFilter;
             currentErrorCodeFilter = errorCodeFilter;
             filteredCredsData = {};
+
+            // 如果筛选条件改变，重置到第一页
+            if (resetPage) {
+                currentPage = 1;
+            }
 
             for (const [fullPath, credInfo] of Object.entries(credsData)) {
                 let shouldInclude = false;
@@ -2412,11 +2458,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 </div>
                 <div class="card-actions">
                     ${status.disabled ?
-                    `<button class="btn-small" onclick="credAction('${filename}', 'enable')" style="background-color: #28a745;">启用</button>` :
-                    `<button class="btn-small" onclick="credAction('${filename}', 'disable')" style="background-color: #6c757d;">禁用</button>`
+                    `<button type="button" class="btn-small" onclick="credAction('${filename}', 'enable')" style="background-color: #28a745;">启用</button>` :
+                    `<button type="button" class="btn-small" onclick="credAction('${filename}', 'disable')" style="background-color: #6c757d;">禁用</button>`
                 }
-                    <button class="btn-small" onclick="fetchUserEmail('${filename}')" style="background-color: #17a2b8;">邮箱</button>
-                    <button class="btn-small" onclick="deleteCred('${filename}')" style="background-color: #dc3545;">删除</button>
+                    <button type="button" class="btn-small" onclick="fetchUserEmail('${filename}')" style="background-color: #17a2b8;">邮箱</button>
+                    <button type="button" class="btn-small" onclick="deleteCred('${filename}')" style="background-color: #dc3545;">删除</button>
                 </div>
             `;
 
@@ -2884,11 +2930,28 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 return;
             }
 
+            // 弹出管理员密码验证对话框
+            const adminPassword = prompt('请输入管理员密码以重置所有统计：');
+
+            // 如果用户取消输入，则退出
+            if (adminPassword === null) {
+                showStatus('已取消重置操作', 'info');
+                return;
+            }
+
+            // 如果用户输入为空，提示错误
+            if (!adminPassword || adminPassword.trim() === '') {
+                showStatus('管理员密码不能为空', 'error');
+                return;
+            }
+
             try {
                 const response = await fetch('/usage/reset', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({})  // 不提供filename表示重置所有
+                    body: JSON.stringify({
+                        admin_password: adminPassword.trim()
+                    })  // 不提供filename表示重置所有
                 });
 
                 const data = await response.json();
@@ -2963,12 +3026,17 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             setFieldValue('credentialsDir', config.credentials_dir);
             setFieldValue('proxy', config.proxy);
 
-            // 端点配置
+            // GeminiCLI 端点配置
             setFieldValue('codeAssistEndpoint', config.code_assist_endpoint);
             setFieldValue('oauthProxyUrl', config.oauth_proxy_url);
             setFieldValue('googleapisProxyUrl', config.googleapis_proxy_url);
             setFieldValue('resourceManagerApiUrl', config.resource_manager_api_url);
             setFieldValue('serviceUsageApiUrl', config.service_usage_api_url);
+
+            // Antigravity 端点配置
+            setFieldValue('antigravityApiEndpoint', config.antigravity_api_endpoint);
+            setFieldValue('antigravityModelsEndpoint', config.antigravity_models_endpoint);
+            setFieldValue('antigravityOauthEndpoint', config.antigravity_oauth_endpoint);
 
             // 自动封禁配置
             setCheckboxValue('autoBanEnabled', config.auto_ban_enabled);
@@ -3052,12 +3120,17 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 credentials_dir: document.getElementById('credentialsDir').value || null,
                 proxy: document.getElementById('proxy').value || null,
 
-                // 端点配置
+                // GeminiCLI 端点配置
                 code_assist_endpoint: document.getElementById('codeAssistEndpoint').value || null,
                 oauth_proxy_url: document.getElementById('oauthProxyUrl').value || null,
                 googleapis_proxy_url: document.getElementById('googleapisProxyUrl').value || null,
                 resource_manager_api_url: document.getElementById('resourceManagerApiUrl').value || null,
                 service_usage_api_url: document.getElementById('serviceUsageApiUrl').value || null,
+
+                // Antigravity 端点配置
+                antigravity_api_endpoint: document.getElementById('antigravityApiEndpoint').value || null,
+                antigravity_models_endpoint: document.getElementById('antigravityModelsEndpoint').value || null,
+                antigravity_oauth_endpoint: document.getElementById('antigravityOauthEndpoint').value || null,
 
                 auto_ban_enabled: document.getElementById('autoBanEnabled').checked,
                 auto_ban_error_codes: document.getElementById('autoBanErrorCodes').value || null,
@@ -3461,13 +3534,20 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             serviceUsageApiUrl: 'https://gcli-api.sukaka.top/serviceusage'
         };
 
-        // 官方端点配置
+        // GeminiCLI 官方端点配置
         const officialUrls = {
             codeAssistEndpoint: 'https://cloudcode-pa.googleapis.com',
             oauthProxyUrl: 'https://oauth2.googleapis.com',
             googleapisProxyUrl: 'https://www.googleapis.com',
             resourceManagerApiUrl: 'https://cloudresourcemanager.googleapis.com',
             serviceUsageApiUrl: 'https://serviceusage.googleapis.com'
+        };
+
+        // Antigravity 官方端点配置
+        const antigravityOfficialUrls = {
+            antigravityApiEndpoint: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse',
+            antigravityModelsEndpoint: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels',
+            antigravityOauthEndpoint: 'https://oauth2.googleapis.com/token'
         };
 
         // 使用镜像网址
@@ -3486,9 +3566,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
-        // 还原官方端点
+        // 还原 GeminiCLI 官方端点
         function restoreOfficialUrls() {
-            if (confirm('确定要将所有端点配置为官方地址吗？\n\n官方端点：\n• Code Assist: cloudcodeassist-pa.googleapis.com\n• OAuth: oauth2.googleapis.com\n• Google APIs: www.googleapis.com\n• Resource Manager: cloudresourcemanager.googleapis.com\n• Service Usage: serviceusage.googleapis.com')) {
+            if (confirm('确定要将 GeminiCLI 端点配置为官方地址吗？\n\n官方端点：\n• Code Assist: cloudcode-pa.googleapis.com\n• OAuth: oauth2.googleapis.com\n• Google APIs: www.googleapis.com\n• Resource Manager: cloudresourcemanager.googleapis.com\n• Service Usage: serviceusage.googleapis.com')) {
 
                 // 设置所有端点为官方地址
                 for (const [fieldId, url] of Object.entries(officialUrls)) {
@@ -3498,7 +3578,23 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     }
                 }
 
-                showStatus('✅ 已切换到官方端点，记得保存配置', 'success');
+                showStatus('✅ 已切换到 GeminiCLI 官方端点，记得保存配置', 'success');
+            }
+        }
+
+        // 还原 Antigravity 官方端点
+        function restoreAntigravityOfficialUrls() {
+            if (confirm('确定要将 Antigravity 端点配置为官方地址吗？\n\n官方端点：\n• API: daily-cloudcode-pa.sandbox.googleapis.com\n• Models: daily-cloudcode-pa.sandbox.googleapis.com\n• OAuth: oauth2.googleapis.com/token')) {
+
+                // 设置所有 Antigravity 端点为官方地址
+                for (const [fieldId, url] of Object.entries(antigravityOfficialUrls)) {
+                    const field = document.getElementById(fieldId);
+                    if (field && !field.disabled) {
+                        field.value = url;
+                    }
+                }
+
+                showStatus('✅ 已切换到 Antigravity 官方端点，记得保存配置', 'success');
             }
         }
     </script>

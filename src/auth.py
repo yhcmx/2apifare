@@ -34,6 +34,18 @@ SCOPES = [
     "https://www.googleapis.com/auth/userinfo.profile",
 ]
 
+# Antigravity 专用配置（使用Google内部Client ID）
+# 注意：实际使用时请从环境变量或配置文件中读取这些值
+ANTIGRAVITY_CLIENT_ID = os.getenv("ANTIGRAVITY_CLIENT_ID", "YOUR_CLIENT_ID_HERE")
+ANTIGRAVITY_CLIENT_SECRET = os.getenv("ANTIGRAVITY_CLIENT_SECRET", "YOUR_CLIENT_SECRET_HERE")
+ANTIGRAVITY_SCOPES = [
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/cclog",
+    "https://www.googleapis.com/auth/experimentsandconfigs",
+]
+
 # 回调服务器配置
 CALLBACK_HOST = "localhost"
 

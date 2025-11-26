@@ -415,7 +415,7 @@ class CredentialManager:
             return {}
 
     async def get_or_fetch_user_email(self, credential_name: str) -> Optional[str]:
-        """获取或获取用户邮箱地址"""
+        """获取或获取用户邮箱地址（支持 CLI 和 Antigravity 凭证）"""
         try:
             # 首先检查缓存的状态
             state = await self._storage_adapter.get_credential_state(credential_name)
@@ -429,7 +429,20 @@ class CredentialManager:
             if not credential_data:
                 return None
 
-            # 尝试获取邮箱
+            # 特殊处理 Antigravity 账户（userID_ 前缀）
+            if credential_name.startswith("userID_"):
+                # Antigravity 账户直接从凭证数据中读取 email 字段
+                email = credential_data.get("email")
+                if email:
+                    log.debug(f"Got email from Antigravity account: {email}")
+                    # 缓存邮箱地址
+                    await self.update_credential_state(credential_name, {"user_email": email})
+                    return email
+                else:
+                    log.warning(f"Antigravity account {credential_name} missing email field")
+                    return None
+
+            # CLI 凭证：调用 Google API 获取邮箱
             email = await fetch_user_email_from_file(credential_data)
 
             if email:

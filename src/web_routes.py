@@ -214,20 +214,20 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     return credentials.credentials
 
 
-async def backup_config_before_delete():
+async def backup_creds_before_delete():
     """
-    在删除凭证文件前备份 config.toml 文件
-    备份格式：creds{数量}_{时间戳}.toml.bak
+    在删除凭证文件前备份 creds.toml 文件
+    备份格式：creds_{删除后剩余凭证数}_{时间戳}.toml.bak
     保存路径：creds/backup/
     """
     try:
         # 获取凭证目录
         credentials_dir = await config.get_credentials_dir()
 
-        # 配置文件路径
-        config_path = os.path.join(credentials_dir, "config.toml")
-        if not os.path.exists(config_path):
-            log.warning(f"Config file not found: {config_path}")
+        # creds.toml 文件路径
+        creds_toml_path = os.path.join(credentials_dir, "creds.toml")
+        if not os.path.exists(creds_toml_path):
+            log.warning(f"creds.toml file not found: {creds_toml_path}")
             return None
 
         # 备份目录
@@ -236,24 +236,24 @@ async def backup_config_before_delete():
         # 确保备份目录存在
         os.makedirs(backup_dir, exist_ok=True)
 
-        # 获取当前凭证文件数量
+        # 获取当前凭证文件数量（删除后会减1）
         storage_adapter = await get_storage_adapter()
         all_creds = await storage_adapter.list_credentials()
-        creds_count = len(all_creds) if all_creds else 0
+        creds_count_after_delete = len(all_creds) - 1 if all_creds else 0
 
         # 生成备份文件名
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        backup_filename = f"creds{creds_count}_{timestamp}.toml.bak"
+        backup_filename = f"creds_{creds_count_after_delete}_{timestamp}.toml.bak"
         backup_path = os.path.join(backup_dir, backup_filename)
 
-        # 复制配置文件
-        shutil.copy2(config_path, backup_path)
-        log.info(f"Config backup created: {backup_path}")
+        # 复制 creds.toml 文件
+        shutil.copy2(creds_toml_path, backup_path)
+        log.info(f"creds.toml backup created: {backup_path}")
 
         return backup_path
 
     except Exception as e:
-        log.error(f"Failed to backup config: {e}")
+        log.error(f"Failed to backup creds.toml: {e}")
         # 备份失败不应该阻止删除操作，只记录错误
         return None
 
@@ -763,50 +763,47 @@ async def get_creds_status(token: str = Depends(verify_token)):
             """并发处理单个凭证的数据获取"""
             file_status = all_states.get(filename)
 
-            # 如果没有状态记录，创建默认状态
+            # 如果没有状态记录，直接从存储读取（不要写入默认值！）
             if not file_status:
                 try:
-                    import time
-
-                    default_state = {
-                        "error_codes": [],
-                        "disabled": False,
-                        "last_success": time.time(),
-                        "user_email": None,
-                        "gemini_2_5_pro_calls": 0,
-                        "total_calls": 0,
-                        "next_reset_time": None,
-                        "daily_limit_gemini_2_5_pro": 100,
-                        "daily_limit_total": 1000,
-                    }
-                    await storage_adapter.update_credential_state(filename, default_state)
-                    file_status = default_state
-                    log.debug(f"为凭证 {filename} 创建了默认状态记录")
+                    # 从存储适配器重新读取状态（可能在accounts.toml中）
+                    file_status = await storage_adapter.get_credential_state(filename)
+                    if not file_status or file_status.get("disabled") is None:
+                        # 仍然没有状态，使用临时默认值仅用于显示（不写入）
+                        import time
+                        # 只使用核心状态字段（CLI 和 ANT 都通用的）
+                        file_status = {
+                            "error_codes": [],
+                            "disabled": False,
+                            "last_success": time.time(),
+                            "user_email": None,
+                        }
+                        log.debug(f"为凭证 {filename} 使用临时默认状态（仅显示，不写入）")
                 except Exception as e:
-                    log.warning(f"无法为凭证 {filename} 创建状态记录: {e}")
-                    # 创建临时状态用于显示
+                    log.warning(f"无法读取凭证 {filename} 的状态: {e}")
+                    # 创建临时状态用于显示（不写入）
+                    import time
                     file_status = {
                         "error_codes": [],
                         "disabled": False,
                         "last_success": time.time(),
                         "user_email": None,
-                        "gemini_2_5_pro_calls": 0,
-                        "total_calls": 0,
-                        "next_reset_time": None,
-                        "daily_limit_gemini_2_5_pro": 100,
-                        "daily_limit_total": 1000,
                     }
 
             try:
                 # 从存储获取凭证数据
                 credential_data = await storage_adapter.get_credential(filename)
                 if credential_data:
+                    # 判断凭证类型：userID_ 前缀或 accounts.toml 是 ANT 凭证，其他是 CLI 凭证
+                    credential_type = "ant" if (filename.startswith("userID_") or "accounts.toml" in filename.lower()) else "cli"
+
                     result = {
                         "status": file_status,
                         "content": credential_data,
                         "filename": os.path.basename(filename),
                         "backend_type": backend_type,  # 复用backend信息
                         "user_email": file_status.get("user_email"),
+                        "credential_type": credential_type,  # 新增：凭证类型标识
                     }
 
                     # 如果是文件模式，添加文件元数据
@@ -870,9 +867,10 @@ async def creds_action(request: CredFileActionRequest, token: str = Depends(veri
 
         log.info(f"Performing action '{action}' on file: {filename}")
 
-        # 验证文件名
-        if not filename.endswith(".json"):
-            log.error(f"Invalid filename: {filename} (not a .json file)")
+        # 验证文件名：允许 .json 或 userID_ 前缀
+        is_valid = filename.endswith(".json") or filename.startswith("userID_")
+        if not is_valid:
+            log.error(f"Invalid filename: {filename} (must end with .json or start with userID_)")
             raise HTTPException(status_code=400, detail=f"无效的文件名: {filename}")
 
         # 获取存储适配器
@@ -898,10 +896,10 @@ async def creds_action(request: CredFileActionRequest, token: str = Depends(veri
 
         elif action == "delete":
             try:
-                # 在删除前备份配置文件
-                backup_path = await backup_config_before_delete()
+                # 在删除前备份 creds.toml 文件
+                backup_path = await backup_creds_before_delete()
                 if backup_path:
-                    log.info(f"Config backed up to: {backup_path}")
+                    log.info(f"creds.toml backed up to: {backup_path}")
 
                 # 使用存储适配器删除凭证
                 success = await storage_adapter.delete_credential(filename)
@@ -909,7 +907,7 @@ async def creds_action(request: CredFileActionRequest, token: str = Depends(veri
                     log.info(f"Successfully deleted credential: {filename}")
                     message = f"已删除凭证文件 {os.path.basename(filename)}"
                     if backup_path:
-                        message += f"\n配置已备份至: {os.path.basename(backup_path)}"
+                        message += f"\ncreds.toml 已备份至: {os.path.basename(backup_path)}"
                     return JSONResponse(content={"message": message})
                 else:
                     raise HTTPException(status_code=500, detail="删除凭证失败")
@@ -968,8 +966,9 @@ async def creds_batch_action(
 
         for filename in filenames:
             try:
-                # 验证文件名安全性
-                if not filename.endswith(".json"):
+                # 验证文件名安全性：允许 .json 或 userID_ 前缀
+                is_valid = filename.endswith(".json") or filename.startswith("userID_")
+                if not is_valid:
                     errors.append(f"{filename}: 无效的文件类型")
                     continue
 
@@ -1046,7 +1045,10 @@ async def fetch_user_email(filename: str, token: str = Depends(verify_token)):
         import os
 
         filename_only = os.path.basename(filename)
-        if not filename_only.endswith(".json"):
+
+        # 验证文件名：允许 .json 或 userID_ 前缀
+        is_valid = filename_only.endswith(".json") or filename_only.startswith("userID_")
+        if not is_valid:
             raise HTTPException(status_code=404, detail="无效的文件名")
 
         # 检查凭证是否存在于存储系统中
@@ -1160,11 +1162,16 @@ async def get_config(token: str = Depends(verify_token)):
         current_config["credentials_dir"] = await config.get_credentials_dir()
         current_config["proxy"] = await config.get_proxy_config() or ""
 
-        # 代理端点配置
+        # GeminiCLI 代理端点配置
         current_config["oauth_proxy_url"] = await config.get_oauth_proxy_url()
         current_config["googleapis_proxy_url"] = await config.get_googleapis_proxy_url()
         current_config["resource_manager_api_url"] = await config.get_resource_manager_api_url()
         current_config["service_usage_api_url"] = await config.get_service_usage_api_url()
+
+        # Antigravity 端点配置
+        current_config["antigravity_api_endpoint"] = await config.get_antigravity_api_endpoint()
+        current_config["antigravity_models_endpoint"] = await config.get_antigravity_models_endpoint()
+        current_config["antigravity_oauth_endpoint"] = await config.get_antigravity_oauth_endpoint()
 
         # 检查环境变量锁定状态
         if os.getenv("CODE_ASSIST_ENDPOINT"):
@@ -1181,6 +1188,12 @@ async def get_config(token: str = Depends(verify_token)):
             env_locked.append("resource_manager_api_url")
         if os.getenv("SERVICE_USAGE_API_URL"):
             env_locked.append("service_usage_api_url")
+        if os.getenv("ANTIGRAVITY_API_ENDPOINT"):
+            env_locked.append("antigravity_api_endpoint")
+        if os.getenv("ANTIGRAVITY_MODELS_ENDPOINT"):
+            env_locked.append("antigravity_models_endpoint")
+        if os.getenv("ANTIGRAVITY_OAUTH_ENDPOINT"):
+            env_locked.append("antigravity_oauth_endpoint")
 
         # 自动封禁配置
         current_config["auto_ban_enabled"] = await config.get_auto_ban_enabled()
@@ -1358,6 +1371,16 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
             env_locked_keys.add("oauth_proxy_url")
         if os.getenv("GOOGLEAPIS_PROXY_URL"):
             env_locked_keys.add("googleapis_proxy_url")
+        if os.getenv("RESOURCE_MANAGER_API_URL"):
+            env_locked_keys.add("resource_manager_api_url")
+        if os.getenv("SERVICE_USAGE_API_URL"):
+            env_locked_keys.add("service_usage_api_url")
+        if os.getenv("ANTIGRAVITY_API_ENDPOINT"):
+            env_locked_keys.add("antigravity_api_endpoint")
+        if os.getenv("ANTIGRAVITY_MODELS_ENDPOINT"):
+            env_locked_keys.add("antigravity_models_endpoint")
+        if os.getenv("ANTIGRAVITY_OAUTH_ENDPOINT"):
+            env_locked_keys.add("antigravity_oauth_endpoint")
         if os.getenv("AUTO_BAN"):
             env_locked_keys.add("auto_ban_enabled")
         if os.getenv("RETRY_429_MAX_RETRIES"):
@@ -1438,7 +1461,15 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
                 hot_updated.append("proxy")
 
             # 代理端点配置（可热更新）
-            proxy_endpoint_configs = ["oauth_proxy_url", "googleapis_proxy_url"]
+            proxy_endpoint_configs = [
+                "oauth_proxy_url",
+                "googleapis_proxy_url",
+                "resource_manager_api_url",
+                "service_usage_api_url",
+                "antigravity_api_endpoint",
+                "antigravity_models_endpoint",
+                "antigravity_oauth_endpoint"
+            ]
             for config_key in proxy_endpoint_configs:
                 if config_key in new_config and config_key not in env_locked_keys:
                     hot_updated.append(config_key)
@@ -1759,7 +1790,7 @@ async def websocket_logs(websocket: WebSocket):
 @router.get("/usage/stats")
 async def get_usage_statistics(filename: Optional[str] = None, token: str = Depends(verify_token)):
     """
-    获取使用统计信息
+    获取使用统计信息（包括 CLI 和 Antigravity 凭证）
 
     Args:
         filename: 可选，指定凭证文件名。如果不提供则返回所有文件的统计
@@ -1768,8 +1799,31 @@ async def get_usage_statistics(filename: Optional[str] = None, token: str = Depe
         usage statistics for the specified file or all files
     """
     try:
-        stats = await get_usage_stats(filename)
-        return JSONResponse(content={"success": True, "data": stats})
+        # 获取 CLI 凭证的统计
+        cli_stats = await get_usage_stats(filename)
+
+        # 获取 Antigravity 凭证的统计
+        from .antigravity_usage_stats import get_antigravity_usage_stats_instance
+        antigravity_stats_instance = await get_antigravity_usage_stats_instance()
+        antigravity_stats = await antigravity_stats_instance.get_usage_stats(filename)
+
+        # 合并统计数据
+        if filename:
+            # 如果指定了文件名，返回单个文件的统计
+            combined_stats = cli_stats if cli_stats else antigravity_stats
+        else:
+            # 如果没有指定文件名，合并所有统计
+            combined_stats = {}
+
+            # 添加 CLI 凭证统计
+            if isinstance(cli_stats, dict):
+                combined_stats.update(cli_stats)
+
+            # 添加 Antigravity 凭证统计
+            if isinstance(antigravity_stats, dict):
+                combined_stats.update(antigravity_stats)
+
+        return JSONResponse(content={"success": True, "data": combined_stats})
     except Exception as e:
         log.error(f"获取使用统计失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1830,6 +1884,7 @@ async def update_usage_limits(
 
 class UsageResetRequest(BaseModel):
     filename: Optional[str] = None
+    admin_password: Optional[str] = None
 
 
 @router.post("/usage/reset")
@@ -1838,12 +1893,21 @@ async def reset_usage_statistics(request: UsageResetRequest, token: str = Depend
     重置使用统计
 
     Args:
-        request: 包含可选文件名的请求。如果不提供文件名则重置所有统计
+        request: 包含可选文件名和管理员密码的请求。如果不提供文件名则重置所有统计（需要管理员密码）
 
     Returns:
         Success message
     """
     try:
+        # 如果是重置所有统计（不提供filename），需要验证管理员密码
+        if not request.filename:
+            if not request.admin_password:
+                raise HTTPException(status_code=403, detail="重置所有统计需要提供管理员密码")
+
+            correct_admin_password = await config.get_admin_password()
+            if request.admin_password != correct_admin_password:
+                raise HTTPException(status_code=403, detail="管理员密码错误")
+
         stats_instance = await get_usage_stats_instance()
 
         await stats_instance.reset_stats(filename=request.filename)
@@ -1855,8 +1919,146 @@ async def reset_usage_statistics(request: UsageResetRequest, token: str = Depend
 
         return JSONResponse(content={"success": True, "message": message})
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error(f"重置使用统计失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== IP 统计功能 ====================
+
+
+@router.get("/ip/stats")
+async def get_ip_statistics(ip: Optional[str] = None, token: str = Depends(verify_token)):
+    """
+    获取 IP 统计信息
+
+    Args:
+        ip: 可选的 IP 地址，如果提供则只返回该 IP 的统计
+
+    Returns:
+        IP 统计数据
+    """
+    try:
+        from .ip_manager import get_ip_manager
+
+        ip_manager = await get_ip_manager()
+        stats = await ip_manager.get_ip_stats(ip)
+
+        return JSONResponse(content={"success": True, "data": stats})
+    except Exception as e:
+        log.error(f"获取 IP 统计失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ip/summary")
+async def get_ip_summary(token: str = Depends(verify_token)):
+    """
+    获取 IP 统计摘要
+
+    Returns:
+        IP 统计摘要（总数、活跃数、封禁数等）
+    """
+    try:
+        from .ip_manager import get_ip_manager
+
+        ip_manager = await get_ip_manager()
+        summary = await ip_manager.get_all_ips_summary()
+
+        return JSONResponse(content={"success": True, "data": summary})
+    except Exception as e:
+        log.error(f"获取 IP 摘要失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class IPStatusUpdateRequest(BaseModel):
+    ip: str
+    status: str  # active, banned, rate_limited
+    rate_limit_seconds: Optional[int] = None
+    admin_password: Optional[str] = None  # 启用 IP 时需要管理员密码
+
+
+@router.post("/ip/update-status")
+async def update_ip_status(request: IPStatusUpdateRequest, token: str = Depends(verify_token)):
+    """
+    更新 IP 状态
+
+    权限机制（狼人杀模式 - 每分钟请求次数）：
+    - 启用 IP (status=active)：需要管理员密码
+    - 封禁 IP (status=banned)：无需密码
+    - 限速 IP (status=rate_limited)：
+      * 首次设置或减少次数（收紧限制）：无需密码
+      * 增加次数（放松限制）：需要管理员密码
+      注：后端存储为秒数，秒数越小 = 每分钟次数越多 = 限制越松
+
+    Args:
+        request: 包含 IP 地址、状态和可选管理员密码的请求
+
+    Returns:
+        Success message
+    """
+    try:
+        from .ip_manager import get_ip_manager
+
+        ip_manager = await get_ip_manager()
+
+        # 启用 IP 需要验证管理员密码
+        if request.status == "active":
+            if not request.admin_password:
+                raise HTTPException(status_code=403, detail="启用 IP 需要提供管理员密码")
+
+            # 验证管理员密码
+            correct_admin_password = await config.get_admin_password()
+            if request.admin_password != correct_admin_password:
+                raise HTTPException(status_code=403, detail="管理员密码错误")
+
+        # 限速操作：检查是否放松限制（秒数减少 = 每分钟次数增加）
+        elif request.status == "rate_limited" and request.rate_limit_seconds:
+            # 获取当前 IP 的限速设置
+            current_stats = await ip_manager.get_ip_stats(request.ip)
+            current_rate_limit = current_stats.get("rate_limit_seconds", 0) if current_stats else 0
+
+            # 如果减少限速间隔（秒数变小 = 每分钟次数增加 = 放松限制），需要管理员密码
+            if current_rate_limit > 0 and request.rate_limit_seconds < current_rate_limit:
+                # 计算每分钟次数用于提示
+                current_requests_per_min = round(60 / current_rate_limit)
+                new_requests_per_min = round(60 / request.rate_limit_seconds)
+
+                if not request.admin_password:
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"增加请求次数需要管理员密码（当前{current_requests_per_min}次/分 → 新{new_requests_per_min}次/分）",
+                    )
+
+                # 验证管理员密码
+                correct_admin_password = await config.get_admin_password()
+                if request.admin_password != correct_admin_password:
+                    raise HTTPException(status_code=403, detail="管理员密码错误")
+
+        success = await ip_manager.set_ip_status(
+            ip=request.ip, status=request.status, rate_limit_seconds=request.rate_limit_seconds
+        )
+
+        if success:
+            status_names = {
+                "active": "启用",
+                "banned": "封禁",
+                "rate_limited": "限速",
+            }
+            status_name = status_names.get(request.status, request.status)
+            message = f"已将 IP {request.ip} 设置为{status_name}"
+            if request.status == "rate_limited" and request.rate_limit_seconds:
+                requests_per_min = round(60 / request.rate_limit_seconds)
+                message += f"（{requests_per_min}次/分钟）"
+            return JSONResponse(content={"success": True, "message": message})
+        else:
+            raise HTTPException(status_code=500, detail="更新 IP 状态失败")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"更新 IP 状态失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1864,9 +2066,9 @@ async def reset_usage_statistics(request: UsageResetRequest, token: str = Depend
 
 
 async def get_guestbook_file_path():
-    """获取留言板JSON文件路径"""
+    """获取留言板TOML文件路径"""
     credentials_dir = await config.get_credentials_dir()
-    return os.path.join(credentials_dir, "guestbook.json")
+    return os.path.join(credentials_dir, "guestbook.toml")
 
 
 async def load_guestbook_data():
@@ -1878,7 +2080,7 @@ async def load_guestbook_data():
 
     try:
         with open(guestbook_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            data = toml.load(f)
             return data.get("messages", [])
     except Exception as e:
         log.error(f"Failed to load guestbook: {e}")
@@ -1896,11 +2098,11 @@ async def save_guestbook_data(messages):
     if len(messages) > 100:
         messages = messages[-100:]
 
-    data = {"messages": messages, "last_updated": datetime.datetime.now().isoformat()}
+    data = {"messages": messages, "last_updated": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).isoformat()}
 
     try:
         with open(guestbook_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+            toml.dump(data, f)
         return True
     except Exception as e:
         log.error(f"Failed to save guestbook: {e}")
@@ -1960,7 +2162,7 @@ async def submit_guestbook(request: GuestbookSubmitRequest, token: str = Depends
             "username": username,
             "message": message,
             "emoji": request.emoji or "😃",
-            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S"),
         }
 
         # 添加到列表

@@ -181,7 +181,11 @@ async def get_retry_429_interval() -> float:
     return float(await get_config_value("retry_429_interval", 1))
 
 
-# Model name lists for different features
+# ============================================================================
+# GeminiCLI Models Configuration
+# ============================================================================
+
+# GeminiCLI 基础模型列表
 BASE_MODELS = [
     "gemini-2.5-pro-preview-06-05",
     "gemini-2.5-pro",
@@ -197,9 +201,63 @@ BASE_MODELS = [
 PUBLIC_API_MODELS = ["gemini-2.5-flash-image", "gemini-2.5-flash-image-preview"]
 
 
+# ============================================================================
+# Antigravity Models Configuration (Gemini 3.0)
+# ============================================================================
+
+# Antigravity 基础模型列表（从 Google Antigravity API 获取）
+ANTIGRAVITY_BASE_MODELS = [
+    "chat_23310",
+    "chat_20706",
+    "claude-sonnet-4-5",
+    "claude-sonnet-4-5-thinking",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash-image",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-thinking",
+    "gemini-2.5-pro",
+    "gemini-3-pro-high",
+    "gemini-3-pro-image",
+    "gemini-3-pro-low",
+    "gpt-oss-120b-medium",
+]
+
+# 已经包含特殊后缀的 Antigravity 模型（不再添加功能后缀）
+ANTIGRAVITY_SPECIAL_MODELS = [
+    "claude-sonnet-4-5-thinking",
+    "gemini-2.5-flash-thinking",
+    "gemini-2.5-flash-image",
+    "gemini-3-pro-image",
+]
+
+
+def get_antigravity_models():
+    """
+    获取 Antigravity 模型列表
+
+    设计原则：
+    1. Antigravity API 本身已经是流式的，不需要"假流式"前缀
+    2. Antigravity API 有自己的续写机制，不需要"流式抗截断"前缀
+    3. 使用 ANT/ 前缀标识，便于区分来源和路由
+    4. 保持原始模型名称，不添加额外的功能后缀
+
+    Returns:
+        List[str]: Antigravity 模型名称列表
+    """
+    models = []
+
+    for base_model in ANTIGRAVITY_BASE_MODELS:
+        # 添加基础模型（带 ANT/ 前缀标识）
+        models.append(f"ANT/{base_model}")
+
+    return models
+
+
 def get_available_models(router_type="openai"):
     """
     Get available models with feature prefixes.
+
+    包含 GeminiCLI 模型（带功能前缀）和 Antigravity 模型（ANT/ 前缀）
 
     Args:
         router_type: "openai" or "gemini"
@@ -209,6 +267,7 @@ def get_available_models(router_type="openai"):
     """
     models = []
 
+    # 1. GeminiCLI 模型（带功能前缀）
     for base_model in BASE_MODELS:
         # 基础模型
         models.append(base_model)
@@ -233,7 +292,22 @@ def get_available_models(router_type="openai"):
             # 流式抗截断 + thinking后缀
             models.append(f"流式抗截断/{base_model}{thinking_suffix}")
 
+    # 2. Antigravity 模型（ANT/ 前缀）
+    models.extend(get_antigravity_models())
+
     return models
+
+
+def is_antigravity_model(model_name: str) -> bool:
+    """Check if model name indicates Antigravity API should be used."""
+    return model_name.startswith("ANT/")
+
+
+def get_antigravity_base_model(model_name: str) -> str:
+    """Get base model name from Antigravity model name (remove ANT/ prefix)."""
+    if model_name.startswith("ANT/"):
+        return model_name[4:]  # 移除 "ANT/" 前缀
+    return model_name
 
 
 def is_fake_streaming_model(model_name: str) -> bool:
@@ -248,6 +322,10 @@ def is_anti_truncation_model(model_name: str) -> bool:
 
 def get_base_model_from_feature_model(model_name: str) -> str:
     """Get base model name from feature model name."""
+    # Remove Antigravity prefix first
+    if model_name.startswith("ANT/"):
+        return model_name[4:]
+
     # Remove feature prefixes
     for prefix in ["假流式/", "流式抗截断/"]:
         if model_name.startswith(prefix):
@@ -485,6 +563,68 @@ async def get_service_usage_api_url() -> str:
     return str(
         await get_config_value(
             "service_usage_api_url", "https://serviceusage.googleapis.com", "SERVICE_USAGE_API_URL"
+        )
+    )
+
+
+# ============================================================================
+# Antigravity Endpoint Configuration (Google Antigravity API for Gemini 3.0)
+# ============================================================================
+
+
+async def get_antigravity_api_endpoint() -> str:
+    """
+    Get Antigravity API endpoint for streaming content generation.
+
+    用于 Antigravity 流式生成内容的 API 端点。
+
+    Environment variable: ANTIGRAVITY_API_ENDPOINT
+    TOML config key: antigravity_api_endpoint
+    Default: https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse
+    """
+    return str(
+        await get_config_value(
+            "antigravity_api_endpoint",
+            "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+            "ANTIGRAVITY_API_ENDPOINT",
+        )
+    )
+
+
+async def get_antigravity_models_endpoint() -> str:
+    """
+    Get Antigravity models endpoint for fetching available models.
+
+    用于获取 Antigravity 可用模型列表的端点。
+
+    Environment variable: ANTIGRAVITY_MODELS_ENDPOINT
+    TOML config key: antigravity_models_endpoint
+    Default: https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels
+    """
+    return str(
+        await get_config_value(
+            "antigravity_models_endpoint",
+            "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
+            "ANTIGRAVITY_MODELS_ENDPOINT",
+        )
+    )
+
+
+async def get_antigravity_oauth_endpoint() -> str:
+    """
+    Get Antigravity OAuth token endpoint for refreshing access tokens.
+
+    用于刷新 Antigravity access token 的 OAuth 端点。
+
+    Environment variable: ANTIGRAVITY_OAUTH_ENDPOINT
+    TOML config key: antigravity_oauth_endpoint
+    Default: https://oauth2.googleapis.com/token
+    """
+    return str(
+        await get_config_value(
+            "antigravity_oauth_endpoint",
+            "https://oauth2.googleapis.com/token",
+            "ANTIGRAVITY_OAUTH_ENDPOINT",
         )
     )
 

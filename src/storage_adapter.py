@@ -82,6 +82,11 @@ class StorageBackend(Protocol):
         """获取所有使用统计"""
         ...
 
+    # Antigravity 凭证管理
+    async def load_antigravity_accounts(self) -> Dict[str, Any]:
+        """加载 Antigravity accounts.toml"""
+        ...
+
 
 class StorageAdapter:
     """存储适配器，根据配置选择存储后端"""
@@ -246,6 +251,18 @@ class StorageAdapter:
         """获取所有使用统计"""
         self._ensure_initialized()
         return await self._backend.get_all_usage_stats()
+
+    # ============ Antigravity 凭证管理 ============
+
+    async def load_antigravity_accounts(self) -> Dict[str, Any]:
+        """加载 Antigravity accounts.toml"""
+        self._ensure_initialized()
+        return await self._backend.load_antigravity_accounts()
+
+    async def save_antigravity_accounts(self, accounts_data: Dict[str, Any]) -> bool:
+        """保存 Antigravity accounts.toml"""
+        self._ensure_initialized()
+        return await self._backend.save_antigravity_accounts(accounts_data)
 
     # ============ 工具方法 ============
 

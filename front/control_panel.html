@@ -823,6 +823,152 @@
             margin-top: 5px;
         }
 
+        /* 二级标签页样式 */
+        .sub-tabs {
+            display: flex;
+            gap: 10px;
+            padding-bottom: 0;
+        }
+
+        .sub-tab {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .sub-tab:hover {
+            color: #333;
+            background: rgba(66, 133, 244, 0.1);
+        }
+
+        .sub-tab.active {
+            color: #4285f4;
+            border-bottom-color: #4285f4;
+        }
+
+        .sub-tab-content {
+            padding-top: 20px;
+        }
+
+        /* IP 统计卡片样式 */
+        .ip-card {
+            background-color: #f8f9fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            position: relative;
+        }
+
+        .ip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .ip-address {
+            font-family: monospace;
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .ip-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .ip-status.active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .ip-status.banned {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .ip-status.rate_limited {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .ip-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+
+        .ip-info-item {
+            background-color: #ffffff;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .ip-info-label {
+            font-weight: bold;
+            color: #666;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .ip-info-value {
+            color: #333;
+        }
+
+        .ip-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .ip-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            color: white;
+        }
+
+        .ip-btn.enable {
+            background-color: #28a745;
+        }
+
+        .ip-btn.enable:hover {
+            background-color: #218838;
+        }
+
+        .ip-btn.ban {
+            background-color: #dc3545;
+        }
+
+        .ip-btn.ban:hover {
+            background-color: #c82333;
+        }
+
+        .ip-btn.rate-limit {
+            background-color: #ffc107;
+            color: #333;
+        }
+
+        .ip-btn.rate-limit:hover {
+            background-color: #e0a800;
+        }
+
         /* 限制设置弹窗样式 */
         .modal {
             display: none;
@@ -902,13 +1048,14 @@
             <!-- 标签页 -->
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('oauth')">OAuth认证</button>
+                <button class="tab" onclick="switchTab('antigravity')">Antigravity认证</button>
                 <button class="tab" onclick="switchTab('upload')">批量上传</button>
                 <button class="tab" onclick="switchTab('manage')">文件管理</button>
                 <button class="tab" onclick="switchTab('usage')">使用统计</button>
                 <button class="tab" onclick="switchTab('guestbook')">留言板</button>
                 <button class="tab" onclick="switchTab('config')">配置管理</button>
-                <button class="tab" onclick="switchTab('logs')">实时日志</button>
-                <button class="tab" onclick="switchTab('envload')">环境变量</button>
+                <!-- <button class="tab" onclick="switchTab('logs')">实时日志</button> -->
+                <!-- <button class="tab" onclick="switchTab('envload')">环境变量</button> -->
                 <button class="tab" onclick="switchTab('about')">项目信息</button>
             </div>
 
@@ -1045,6 +1192,77 @@
                 <div id="credentialsSection" class="hidden">
                     <h3>认证文件内容：</h3>
                     <div class="credentials" id="credentialsContent"></div>
+                </div>
+            </div>
+
+            <!-- Antigravity认证标签页 -->
+            <div id="antigravityTab" class="tab-content">
+                <!-- 说明信息 -->
+                <div class="status info" style="margin-bottom: 20px;">
+                    <strong>🚀 Antigravity API 认证</strong>
+                    <p style="margin: 10px 0; color: #004085;">
+                        Antigravity API 是 Google 的另一个 AI 服务接口，使用本功能可以快速获取 Antigravity 认证凭证。
+                        认证成功后，凭证将自动保存到 <code>creds/accounts.toml</code> 文件中。
+                    </p>
+                </div>
+
+                <!-- 认证流程说明 -->
+                <div class="status success" style="margin-bottom: 20px;">
+                    <strong>📋 认证步骤：</strong>
+                    <ol style="margin: 10px 0; padding-left: 20px;">
+                        <li>点击下方"获取 Antigravity 认证链接"按钮</li>
+                        <li>在新窗口中完成 Google 账号授权</li>
+                        <li>授权成功后，复制浏览器地址栏的完整回调 URL</li>
+                        <li>将回调 URL 粘贴到下方输入框</li>
+                        <li>点击"提交认证"按钮完成认证</li>
+                    </ol>
+                </div>
+
+                <button class="btn" id="getAntigravityAuthBtn" onclick="startAntigravityAuth()">获取 Antigravity 认证链接</button>
+
+                <div id="antigravityAuthUrlSection" class="hidden">
+                    <h3>认证链接：</h3>
+                    <div class="auth-url">
+                        <a id="antigravityAuthUrl" href="#" target="_blank">点击此链接进行认证</a>
+                    </div>
+                    <div class="status info">
+                        <strong>重要说明：</strong>
+                        <ol style="margin: 10px 0; padding-left: 20px;">
+                            <li>点击上方认证链接，会在新窗口中打开 Google OAuth 页面</li>
+                            <li>完成 Google 账号登录和授权</li>
+                            <li>授权成功后会跳转到 localhost 显示成功页面或空白页面</li>
+                            <li>复制浏览器地址栏的<strong>完整 URL</strong>（包含 code 参数）</li>
+                            <li>将 URL 粘贴到下方输入框并提交</li>
+                        </ol>
+                    </div>
+
+                    <!-- 回调 URL 输入 -->
+                    <div class="form-group" style="margin: 20px 0;">
+                        <label for="antigravityCallbackUrl">
+                            <strong>粘贴回调 URL：</strong>
+                        </label>
+                        <div style="color: #666; font-size: 13px; margin-bottom: 10px; line-height: 1.6;">
+                            回调 URL 示例：<br>
+                            <code style="background: #f1f3f4; padding: 2px 6px; border-radius: 3px; font-size: 12px; word-break: break-all; display: inline-block; margin-top: 5px;">
+                                http://localhost:8080/oauth-callback?state=antigravity_auth&code=4/0AVMBsJ...&scope=...
+                            </code>
+                        </div>
+                        <input type="url" id="antigravityCallbackUrl"
+                            placeholder="粘贴完整的回调 URL，例如：http://localhost:8080/oauth-callback?state=xxx&code=xxx&scope=xxx..."
+                            style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; font-size: 13px;">
+                        <button class="btn" style="margin-top: 10px; background: #28a745; border-color: #28a745;"
+                            onclick="processAntigravityCallback()">
+                            提交认证
+                        </button>
+                    </div>
+                </div>
+
+                <div id="antigravitySuccessSection" class="hidden">
+                    <div class="status success">
+                        <h3>✅ 认证成功！</h3>
+                        <p>Antigravity 凭证已成功保存到 <code>creds/accounts.toml</code> 文件中。</p>
+                        <p>您现在可以使用这些凭证访问 Antigravity API 服务。</p>
+                    </div>
                 </div>
             </div>
 
@@ -1196,17 +1414,42 @@
 
                 <!-- 状态统计 -->
                 <div class="stats-container" id="statsContainer">
-                    <div class="stat-item total">
-                        <span class="stat-number" id="statTotal">0</span>
-                        <span class="stat-label">总计</span>
+                    <!-- CLI 凭证统计 -->
+                    <div style="display: flex; gap: 10px; align-items: center; padding: 10px; background: #e3f2fd; border-radius: 8px; flex: 1;">
+                        <div style="font-weight: bold; color: #1976d2; min-width: 100px; text-align: center; border-right: 2px solid #1976d2; padding-right: 10px;">
+                            Gemini CLI
+                        </div>
+                        <div class="stat-item total" style="flex: 1; margin: 0;">
+                            <span class="stat-number" id="statCliTotal">0</span>
+                            <span class="stat-label">总计</span>
+                        </div>
+                        <div class="stat-item normal" style="flex: 1; margin: 0;">
+                            <span class="stat-number" id="statCliNormal">0</span>
+                            <span class="stat-label">正常</span>
+                        </div>
+                        <div class="stat-item disabled" style="flex: 1; margin: 0;">
+                            <span class="stat-number" id="statCliDisabled">0</span>
+                            <span class="stat-label">禁用</span>
+                        </div>
                     </div>
-                    <div class="stat-item normal">
-                        <span class="stat-number" id="statNormal">0</span>
-                        <span class="stat-label">正常</span>
-                    </div>
-                    <div class="stat-item disabled">
-                        <span class="stat-number" id="statDisabled">0</span>
-                        <span class="stat-label">禁用</span>
+
+                    <!-- ANT 凭证统计 -->
+                    <div style="display: flex; gap: 10px; align-items: center; padding: 10px; background: #f3e5f5; border-radius: 8px; flex: 1;">
+                        <div style="font-weight: bold; color: #7b1fa2; min-width: 100px; text-align: center; border-right: 2px solid #7b1fa2; padding-right: 10px;">
+                            Antigravity
+                        </div>
+                        <div class="stat-item total" style="flex: 1; margin: 0;">
+                            <span class="stat-number" id="statAntTotal">0</span>
+                            <span class="stat-label">总计</span>
+                        </div>
+                        <div class="stat-item normal" style="flex: 1; margin: 0;">
+                            <span class="stat-number" id="statAntNormal">0</span>
+                            <span class="stat-label">正常</span>
+                        </div>
+                        <div class="stat-item disabled" style="flex: 1; margin: 0;">
+                            <span class="stat-number" id="statAntDisabled">0</span>
+                            <span class="stat-label">禁用</span>
+                        </div>
                     </div>
                 </div>
 
@@ -1237,14 +1480,16 @@
                 <!-- 筛选和分页控件 -->
                 <div class="filter-container">
                     <label for="statusFilter">状态筛选：</label>
-                    <select id="statusFilter" class="filter-select" onchange="applyFilters()">
+                    <select id="statusFilter" class="filter-select" onchange="applyFilters(true)">
                         <option value="all">全部</option>
-                        <option value="normal">正常</option>
-                        <option value="disabled">禁用</option>
+                        <option value="cli-normal">GeminiCLI 正常</option>
+                        <option value="ant-normal">Accounts 正常</option>
+                        <option value="cli-disabled">GeminiCLI 禁用</option>
+                        <option value="ant-disabled">Accounts 禁用</option>
                     </select>
 
                     <label for="errorCodeFilter">错误码筛选：</label>
-                    <select id="errorCodeFilter" class="filter-select" onchange="applyFilters()">
+                    <select id="errorCodeFilter" class="filter-select" onchange="applyFilters(true)">
                         <option value="all">全部错误码</option>
                         <option value="no-errors">无错误</option>
                         <option value="has-errors">有错误</option>
@@ -1285,10 +1530,23 @@
             <!-- 使用统计标签页 -->
             <div id="usageTab" class="tab-content">
                 <h3>使用统计</h3>
-                <p>查看每个凭证文件的API调用统计和配额使用情况</p>
 
-                <!-- 统计概览 -->
-                <div class="stats-container" id="usageStatsContainer">
+                <!-- 二级标签页切换按钮 -->
+                <div class="sub-tabs" style="margin: 20px 0; border-bottom: 2px solid #e0e0e0;">
+                    <button class="sub-tab active" onclick="switchUsageSubTab('credentials')" id="credentialsSubTab">
+                        📊 凭证统计
+                    </button>
+                    <button class="sub-tab" onclick="switchUsageSubTab('ip')" id="ipSubTab">
+                        🌐 IP 统计
+                    </button>
+                </div>
+
+                <!-- 凭证统计子标签页 -->
+                <div id="credentialsStatsContent" class="sub-tab-content">
+                    <p>查看每个凭证文件的API调用统计和配额使用情况</p>
+
+                    <!-- 统计概览 -->
+                    <div class="stats-container" id="usageStatsContainer">
                     <div class="stat-item total">
                         <span class="stat-number" id="totalApiCalls">0</span>
                         <span class="stat-label">总调用数</span>
@@ -1335,6 +1593,94 @@
                         </ul>
                     </div>
                 </div>
+                </div>
+                <!-- 凭证统计子标签页结束 -->
+
+                <!-- IP 统计子标签页 -->
+                <div id="ipStatsContent" class="sub-tab-content" style="display: none;">
+                    <p>查看每个 IP 的请求统计、地理位置和访问控制</p>
+
+                    <!-- IP 统计概览 -->
+                    <div class="stats-container" id="ipStatsContainer">
+                        <div class="stat-item total">
+                            <span class="stat-number" id="totalIPs">0</span>
+                            <span class="stat-label">总 IP 数</span>
+                        </div>
+                        <div class="stat-item normal" style="border-left: 4px solid #28a745;">
+                            <span class="stat-number" id="activeIPs">0</span>
+                            <span class="stat-label">活跃 IP</span>
+                        </div>
+                        <div class="stat-item disabled" style="border-left: 4px solid #dc3545;">
+                            <span class="stat-number" id="bannedIPs">0</span>
+                            <span class="stat-label">封禁 IP</span>
+                        </div>
+                        <div class="stat-item" style="border-left: 4px solid #ffc107;">
+                            <span class="stat-number" id="rateLimitedIPs">0</span>
+                            <span class="stat-label">限速 IP</span>
+                        </div>
+                        <div class="stat-item" style="border-left: 4px solid #6c757d;">
+                            <span class="stat-number" id="totalIPRequests">0</span>
+                            <span class="stat-label">总请求数</span>
+                        </div>
+                    </div>
+
+                    <div class="manage-actions">
+                        <button class="refresh-btn" onclick="refreshIPStats()">刷新统计</button>
+                    </div>
+
+                    <!-- IP 列表 -->
+                    <div id="ipListSection">
+                        <div class="loading" id="ipLoading">正在加载 IP 统计...</div>
+                        <div id="ipList"></div>
+                    </div>
+
+                    <!-- 测试娱乐功能说明 -->
+                    <div class="config-group">
+                        <h4>测试娱乐功能说明</h4>
+                        <div class="config-info">
+                            <strong>IP 状态：</strong>
+                            <ul>
+                                <li><strong>活跃：</strong>正常访问，无限制</li>
+                                <li><strong>限速：</strong>请求间隔受限，超过间隔才允许访问</li>
+                                <li><strong>封禁：</strong>完全禁止访问</li>
+                            </ul>
+
+                            <strong>功能说明：</strong>
+                            <ul>
+                                <li>自动记录每个 IP 的有效 AI 响应次数（失败/重试不计数）</li>
+                                <li>支持查看 IP 地理位置（使用免费 IP-API.com）</li>
+                                <li>可对单个 IP 进行封禁、限速或启用操作</li>
+                                <li>数据持久化保存在 ip_stats.toml 文件中</li>
+                            </ul>
+
+                            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                                <img src="docs/xiwan.png" alt="狼人杀" style="width: 80px; height: 80px; object-fit: contain;">
+                                <strong style="color: #ff6b35; font-size: 1.1em;">🎮 狼人杀测试玩法：</strong>
+                            </div>
+                            <ul>
+                                <li><strong style="color: #dc3545;">🔴 封禁 IP：</strong>任何人都可以操作（无需密码）</li>
+                                <li><strong style="color: #ffc107;">🟡 限速 IP：</strong>
+                                    <ul style="margin-top: 5px;">
+                                        <li>首次设置或减少次数（5次/分→3次/分）：无需密码 ✅</li>
+                                        <li>增加次数/放松限制（3次/分→5次/分）：需要管理员密码 ⚠️</li>
+                                        <li>默认限速：5次/分钟（即每分钟最多请求5次）</li>
+                                    </ul>
+                                </li>
+                                <li><strong style="color: #28a745;">🟢 启用 IP：</strong>需要管理员密码验证 🔐</li>
+                            </ul>
+
+                            <strong>娱乐互动玩法：</strong>
+                            <ul>
+                                <li>🎯 用户可以互相限速对方的 IP，减少每分钟可请求次数</li>
+                                <li>🛡️ 只有管理员才能解除封禁或增加请求次数</li>
+                                <li>⚖️ 防止滥用：允许收紧限制，禁止随意放松</li>
+                                <li>⏰ <strong style="color: #17a2b8;">封禁的IP会在24小时后自动解封</strong></li>
+                                <li>🎪 <strong style="color: #e83e8c;">仅供测试娱乐，请勿用于生产环境</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <!-- IP 统计子标签页结束 -->
             </div>
 
             <!-- 配置管理标签页 -->
@@ -1406,6 +1752,9 @@
                         <div class="config-group">
                             <h4>端点配置</h4>
 
+                            <!-- GeminiCLI 端点配置 -->
+                            <h5 style="margin-top: 15px; margin-bottom: 10px; color: #666;">GeminiCLI 端点配置</h5>
+
                             <!-- 快速配置按钮 -->
                             <div class="form-group">
                                 <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
@@ -1449,6 +1798,39 @@
                                 <input type="text" id="serviceUsageApiUrl" class="config-input"
                                     placeholder="https://serviceusage.googleapis.com" />
                                 <small class="config-note">Google Cloud Service Usage API端点地址，用于服务启用管理</small>
+                            </div>
+
+                            <!-- Antigravity 端点配置 -->
+                            <h5 style="margin-top: 25px; margin-bottom: 10px; color: #666;">Antigravity 端点配置 (Gemini 3.0)</h5>
+
+                            <!-- Antigravity 快速配置按钮 -->
+                            <div class="form-group">
+                                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                                    <button type="button" class="btn" onclick="restoreAntigravityOfficialUrls()"
+                                        style="background-color: #17a2b8; font-size: 14px;">
+                                        🔄 还原官方端点
+                                    </button>
+                                </div>
+                                <small class="config-note">后面凭证很多，同一个IP请求多个凭证会有风控，可自定义代理端点</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="antigravityApiEndpoint">Antigravity API Endpoint:</label>
+                                <input type="text" id="antigravityApiEndpoint" class="config-input"
+                                    placeholder="https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse" />
+                                <small class="config-note">Antigravity 流式生成内容的 API 端点</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="antigravityModelsEndpoint">Antigravity Models Endpoint:</label>
+                                <input type="text" id="antigravityModelsEndpoint" class="config-input"
+                                    placeholder="https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels" />
+                                <small class="config-note">获取 Antigravity 可用模型列表的端点</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="antigravityOauthEndpoint">Antigravity OAuth Endpoint:</label>
+                                <input type="text" id="antigravityOauthEndpoint" class="config-input"
+                                    placeholder="https://oauth2.googleapis.com/token" />
+                                <small class="config-note">刷新 Antigravity access token 的 OAuth 端点</small>
                             </div>
                         </div>
 
@@ -1581,6 +1963,7 @@
             </div>
 
             <!-- 实时日志标签页 -->
+            <!--
             <div id="logsTab" class="tab-content">
                 <h3>实时日志</h3>
                 <p>查看系统实时日志输出，支持日志筛选和自动滚动</p>
@@ -1616,13 +1999,15 @@
                     <div id="logContent">等待连接日志流...</div>
                 </div>
             </div>
+            -->
 
             <!-- 环境变量标签页 -->
+            <!--
             <div id="envloadTab" class="tab-content">
                 <h3>环境变量凭证导入</h3>
                 <p>从环境变量批量导入认证文件，支持部署自动化场景</p>
 
-                <!-- 环境变量状态信息 -->
+                <-- 环境变量状态信息 --
                 <div id="envStatusSection">
                     <div class="loading" id="envStatusLoading">正在检查环境变量状态...</div>
                     <div id="envStatusContent" class="hidden">
@@ -1651,7 +2036,7 @@
                     </div>
                 </div>
 
-                <!-- 操作按钮 -->
+                <-- 操作按钮 --
                 <div class="manage-actions">
                     <button class="btn" onclick="checkEnvCredsStatus()">刷新状态</button>
                     <button class="btn" onclick="loadEnvCredentials()">从环境变量导入</button>
@@ -1659,7 +2044,7 @@
                         onclick="clearEnvCredentials()">清除环境变量文件</button>
                 </div>
 
-                <!-- 使用说明 -->
+                <-- 使用说明 --
                 <div class="config-group">
                     <h4>使用说明</h4>
                     <div class="config-info">
@@ -1686,6 +2071,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     </div>
                 </div>
             </div>
+            -->
 
             <!-- 项目信息标签页 -->
             <div id="aboutTab" class="tab-content">
@@ -1875,7 +2261,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
             // 如果切换到文件管理页面，自动加载数据
             if (tabName === 'manage') {
-                refreshCredsStatus();
+                refreshCredsStatus(true); // 切换标签页时重置到第一页
             }
             // 如果切换到使用统计页面，自动加载统计
             if (tabName === 'usage') {
@@ -2456,7 +2842,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         }
 
         // 凭证文件管理相关函数
-        async function refreshCredsStatus() {
+        async function refreshCredsStatus(resetPage = false) {
             const credsLoading = document.getElementById('credsLoading');
             const credsList = document.getElementById('credsList');
 
@@ -2485,9 +2871,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     // 更新统计显示
                     updateStatsDisplay();
 
-                    // 应用筛选并显示第一页
-                    currentPage = 1;
-                    applyFilters();
+                    // 应用筛选，根据参数决定是否重置页码
+                    applyFilters(resetPage);
 
                     showStatus(`已加载 ${Object.keys(credsData).length} 个凭证文件`, 'success');
                 } else {
@@ -2504,6 +2889,19 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // 计算统计数据
         function calculateStats() {
             statsData = {
+                // CLI 凭证统计
+                cli: {
+                    total: 0,
+                    normal: 0,
+                    disabled: 0
+                },
+                // ANT 凭证统计
+                ant: {
+                    total: 0,
+                    normal: 0,
+                    disabled: 0
+                },
+                // 总计
                 total: 0,
                 normal: 0,
                 disabled: 0
@@ -2513,12 +2911,19 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             availableErrorCodes.clear();
 
             for (const [fullPath, credInfo] of Object.entries(credsData)) {
+                // 获取凭证类型（默认为 cli）
+                const credType = credInfo.credential_type || 'cli';
+
+                // 总计统计
                 statsData.total++;
+                statsData[credType].total++;
 
                 if (credInfo.status.disabled) {
                     statsData.disabled++;
+                    statsData[credType].disabled++;
                 } else {
                     statsData.normal++;
+                    statsData[credType].normal++;
                 }
 
                 // 收集错误码信息
@@ -2556,37 +2961,57 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // 按错误码快速筛选
         function filterByErrorCode(code) {
             document.getElementById('errorCodeFilter').value = code.toString();
-            applyFilters();
+            applyFilters(true); // 筛选条件改变时重置到第一页
         }
 
         // 更新统计显示
         function updateStatsDisplay() {
-            document.getElementById('statTotal').textContent = statsData.total;
-            document.getElementById('statNormal').textContent = statsData.normal;
-            document.getElementById('statDisabled').textContent = statsData.disabled;
+            // 更新 CLI 凭证统计
+            document.getElementById('statCliTotal').textContent = statsData.cli.total;
+            document.getElementById('statCliNormal').textContent = statsData.cli.normal;
+            document.getElementById('statCliDisabled').textContent = statsData.cli.disabled;
+
+            // 更新 ANT 凭证统计
+            document.getElementById('statAntTotal').textContent = statsData.ant.total;
+            document.getElementById('statAntNormal').textContent = statsData.ant.normal;
+            document.getElementById('statAntDisabled').textContent = statsData.ant.disabled;
         }
 
         // 应用筛选
-        function applyFilters() {
+        function applyFilters(resetPage = false) {
             const statusFilter = document.getElementById('statusFilter').value;
             const errorCodeFilter = document.getElementById('errorCodeFilter').value;
             currentFilter = statusFilter;
             currentErrorCodeFilter = errorCodeFilter;
             filteredCredsData = {};
 
+            // 如果筛选条件改变，重置到第一页
+            if (resetPage) {
+                currentPage = 1;
+            }
+
             for (const [fullPath, credInfo] of Object.entries(credsData)) {
                 let shouldInclude = false;
 
-                // 状态筛选
+                // 状态筛选（按凭证类型区分）
+                const credType = credInfo.credential_type || 'cli';
+                const isDisabled = credInfo.status.disabled;
+
                 switch (statusFilter) {
                     case 'all':
                         shouldInclude = true;
                         break;
-                    case 'normal':
-                        shouldInclude = !credInfo.status.disabled;
+                    case 'cli-normal':
+                        shouldInclude = (credType === 'cli' && !isDisabled);
                         break;
-                    case 'disabled':
-                        shouldInclude = credInfo.status.disabled;
+                    case 'ant-normal':
+                        shouldInclude = (credType === 'ant' && !isDisabled);
+                        break;
+                    case 'cli-disabled':
+                        shouldInclude = (credType === 'cli' && isDisabled);
+                        break;
+                    case 'ant-disabled':
+                        shouldInclude = (credType === 'ant' && isDisabled);
                         break;
                 }
 
@@ -2749,14 +3174,14 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             // 创建操作按钮 - 使用文件名而不是完整路径
             let actionButtons = '';
             if (status.disabled) {
-                actionButtons += `<button class="cred-btn enable" data-filename="${filename}" data-action="enable">启用</button>`;
+                actionButtons += `<button type="button" class="cred-btn enable" data-filename="${filename}" data-action="enable">启用</button>`;
             } else {
-                actionButtons += `<button class="cred-btn disable" data-filename="${filename}" data-action="disable">禁用</button>`;
+                actionButtons += `<button type="button" class="cred-btn disable" data-filename="${filename}" data-action="disable">禁用</button>`;
             }
 
             actionButtons += `
-                <button class="cred-btn email" onclick="fetchUserEmail('${filename}')">查看账号邮箱</button>
-                <button class="cred-btn delete" data-filename="${filename}" data-action="delete">删除</button>
+                <button type="button" class="cred-btn email" onclick="fetchUserEmail('${filename}')">查看账号邮箱</button>
+                <button type="button" class="cred-btn delete" data-filename="${filename}" data-action="delete">删除</button>
             `;
 
             // 构建邮箱显示
@@ -2767,12 +3192,22 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 emailInfo = `<div class="cred-email" style="font-size: 12px; color: #999; margin-top: 2px; font-style: italic;">未获取邮箱</div>`;
             }
 
+            // 构建凭证类型标识
+            const credType = credInfo.credential_type || 'cli';
+            const credTypeDisplay = credType === 'cli' ? 'Gemini CLI' : 'Antigravity';
+            const credTypeBadgeColor = credType === 'cli' ? '#1976d2' : '#7b1fa2';
+            const credTypeBadgeBg = credType === 'cli' ? '#e3f2fd' : '#f3e5f5';
+            const credTypeBadge = `<span style="background: ${credTypeBadgeBg}; color: ${credTypeBadgeColor}; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold; margin-left: 8px; white-space: nowrap;">${credTypeDisplay}</span>`;
+
             div.innerHTML = `
                 <div class="cred-header">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <input type="checkbox" class="file-checkbox" data-filename="${filename}" onchange="toggleFileSelection('${filename}')">
-                        <div>
-                            <div class="cred-filename">${filename}</div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                                <span class="cred-filename" style="flex-shrink: 1; min-width: 0;">${filename}</span>
+                                ${credTypeBadge}
+                            </div>
                             ${emailInfo}
                         </div>
                     </div>
@@ -2893,12 +3328,17 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             setConfigField('credentialsDir', currentConfig.credentials_dir || '');
             setConfigField('proxy', currentConfig.proxy || '');
 
-            // 端点配置
+            // GeminiCLI 端点配置
             setConfigField('codeAssistEndpoint', currentConfig.code_assist_endpoint || '');
             setConfigField('oauthProxyUrl', currentConfig.oauth_proxy_url || '');
             setConfigField('googleapisProxyUrl', currentConfig.googleapis_proxy_url || '');
             setConfigField('resourceManagerApiUrl', currentConfig.resource_manager_api_url || '');
             setConfigField('serviceUsageApiUrl', currentConfig.service_usage_api_url || '');
+
+            // Antigravity 端点配置
+            setConfigField('antigravityApiEndpoint', currentConfig.antigravity_api_endpoint || '');
+            setConfigField('antigravityModelsEndpoint', currentConfig.antigravity_models_endpoint || '');
+            setConfigField('antigravityOauthEndpoint', currentConfig.antigravity_oauth_endpoint || '');
 
             // 自动封禁配置
             document.getElementById('autoBanEnabled').checked = Boolean(currentConfig.auto_ban_enabled);
@@ -2967,11 +3407,15 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     code_assist_endpoint: document.getElementById('codeAssistEndpoint').value.trim(),
                     credentials_dir: document.getElementById('credentialsDir').value.trim(),
                     proxy: document.getElementById('proxy').value.trim(),
-                    // 端点配置
+                    // GeminiCLI 端点配置
                     oauth_proxy_url: document.getElementById('oauthProxyUrl').value.trim(),
                     googleapis_proxy_url: document.getElementById('googleapisProxyUrl').value.trim(),
                     resource_manager_api_url: document.getElementById('resourceManagerApiUrl').value.trim(),
                     service_usage_api_url: document.getElementById('serviceUsageApiUrl').value.trim(),
+                    // Antigravity 端点配置
+                    antigravity_api_endpoint: document.getElementById('antigravityApiEndpoint').value.trim(),
+                    antigravity_models_endpoint: document.getElementById('antigravityModelsEndpoint').value.trim(),
+                    antigravity_oauth_endpoint: document.getElementById('antigravityOauthEndpoint').value.trim(),
                     auto_ban_enabled: document.getElementById('autoBanEnabled').checked,
                     auto_ban_error_codes: document.getElementById('autoBanErrorCodes').value
                         .split(',')
@@ -3502,6 +3946,127 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
+        // Antigravity 认证相关函数
+        async function startAntigravityAuth() {
+            const btn = document.getElementById('getAntigravityAuthBtn');
+            btn.disabled = true;
+            btn.textContent = '正在获取认证链接...';
+
+            try {
+                showStatus('正在生成 Antigravity 认证链接...', 'info');
+
+                const response = await fetch('/antigravity/auth/start', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        redirect_uri: 'http://localhost:8080/oauth-callback'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.auth_url) {
+                    document.getElementById('antigravityAuthUrl').href = data.auth_url;
+                    document.getElementById('antigravityAuthUrl').textContent = data.auth_url;
+                    document.getElementById('antigravityAuthUrlSection').classList.remove('hidden');
+                    showStatus('✅ 认证链接已生成，请点击链接进行授权', 'success');
+                } else {
+                    showStatus(`生成认证链接失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                console.error('生成 Antigravity 认证链接失败:', error);
+                showStatus(`生成认证链接失败: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '获取 Antigravity 认证链接';
+            }
+        }
+
+        async function processAntigravityCallback() {
+            const callbackUrlInput = document.getElementById('antigravityCallbackUrl');
+            const callbackUrl = callbackUrlInput.value.trim();
+
+            if (!callbackUrl) {
+                showStatus('请输入回调 URL', 'error');
+                return;
+            }
+
+            // 简单验证 URL 格式
+            if (!callbackUrl.startsWith('http://') && !callbackUrl.startsWith('https://')) {
+                showStatus('请输入有效的 URL（以 http:// 或 https:// 开头）', 'error');
+                return;
+            }
+
+            // 检查是否包含必要参数
+            if (!callbackUrl.includes('code=')) {
+                showStatus('❌ 这不是有效的回调 URL！请确保：\n1. 已完成 Google OAuth 授权\n2. 复制的是浏览器地址栏的完整 URL\n3. URL 包含 code 参数', 'error');
+                return;
+            }
+
+            try {
+                showStatus('正在处理 Antigravity 认证...', 'info');
+
+                const response = await fetch('/antigravity/auth/exchange', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        callback_url: callbackUrl
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // 构建成功消息
+                    let successMessage = '✅ Antigravity 认证成功！凭证已保存';
+
+                    // 如果返回了用户信息，显示详细信息
+                    if (result.user_info) {
+                        const userInfo = result.user_info;
+                        successMessage += `\n\n📧 邮箱: ${userInfo.email}`;
+                        if (userInfo.name) {
+                            successMessage += `\n👤 用户名: ${userInfo.name}`;
+                        }
+                        if (userInfo.verified_email) {
+                            successMessage += `\n✔️ 邮箱已验证`;
+                        }
+
+                        // 更新成功区域的内容
+                        const successSection = document.getElementById('antigravitySuccessSection');
+                        successSection.innerHTML = `
+                            <div class="status success">
+                                <h3>✅ 认证成功！</h3>
+                                <div style="margin: 15px 0; padding: 15px; background: #fff; border-radius: 5px; border: 1px solid #d4edda;">
+                                    <p style="margin: 5px 0;"><strong>📧 邮箱:</strong> ${userInfo.email}</p>
+                                    ${userInfo.name ? `<p style="margin: 5px 0;"><strong>👤 用户名:</strong> ${userInfo.name}</p>` : ''}
+                                    <p style="margin: 5px 0;"><strong>✔️ 邮箱验证:</strong> ${userInfo.verified_email ? '已验证' : '未验证'}</p>
+                                    ${userInfo.picture ? `<p style="margin: 5px 0;"><img src="${userInfo.picture}" alt="头像" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid #28a745;"></p>` : ''}
+                                </div>
+                                <p>Antigravity 凭证已成功保存到 <code>creds/accounts.toml</code> 文件中。</p>
+                                <p>您现在可以使用这些凭证访问 Antigravity API 服务。</p>
+                            </div>
+                        `;
+                    }
+
+                    showStatus(successMessage, 'success');
+                    document.getElementById('antigravitySuccessSection').classList.remove('hidden');
+                    callbackUrlInput.value = '';
+
+                    // 刷新凭证列表
+                    setTimeout(() => {
+                        if (typeof refreshCredsStatus === 'function') {
+                            refreshCredsStatus();
+                        }
+                    }, 1000);
+                } else {
+                    showStatus(`Antigravity 认证失败: ${result.detail || result.error || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                console.error('处理 Antigravity 认证失败:', error);
+                showStatus(`Antigravity 认证失败: ${error.message}`, 'error');
+            }
+        }
+
         // 处理勾选框状态变化
         function handleGetAllProjectsChange() {
             const checkbox = document.getElementById('getAllProjectsCreds');
@@ -3620,9 +4185,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             const div = document.createElement('div');
             div.className = 'usage-card';
 
-            // 计算使用百分比
-            const geminiPercent = Math.min((stats.gemini_2_5_pro_calls / stats.daily_limit_gemini_2_5_pro) * 100, 100);
-            const totalPercent = Math.min((stats.total_calls / stats.daily_limit_total) * 100, 100);
+            // 检测凭证类型：Antigravity (有 claude_sonnet_4_5_calls) 或 CLI (有 gemini_2_5_pro_calls)
+            const isAntigravity = 'claude_sonnet_4_5_calls' in stats || 'gemini_3_pro_calls' in stats;
 
             // 确定进度条颜色
             function getProgressClass(percent) {
@@ -3648,38 +4212,87 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 }
             }
 
+            let progressBarsHtml = '';
+
+            if (isAntigravity) {
+                // Antigravity 凭证：显示 Claude Sonnet 4.5 和 Gemini 3 Pro
+                const claudeCalls = stats.claude_sonnet_4_5_calls || 0;
+                const claudeLimit = stats.daily_limit_claude || 100;
+                const claudePercent = Math.min((claudeCalls / claudeLimit) * 100, 100);
+
+                const geminiCalls = stats.gemini_3_pro_calls || 0;
+                const geminiLimit = stats.daily_limit_gemini || 100;
+                const geminiPercent = Math.min((geminiCalls / geminiLimit) * 100, 100);
+
+                progressBarsHtml = `
+                    <div class="usage-progress">
+                        <div class="usage-progress-label">
+                            <span>Claude Sonnet 4.5</span>
+                            <span>${claudeCalls}/${claudeLimit} (${claudePercent.toFixed(1)}%)</span>
+                        </div>
+                        <div class="usage-progress-bar">
+                            <div class="usage-progress-fill ${getProgressClass(claudePercent)}" style="width: ${claudePercent}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="usage-progress">
+                        <div class="usage-progress-label">
+                            <span>Gemini 3 Pro</span>
+                            <span>${geminiCalls}/${geminiLimit} (${geminiPercent.toFixed(1)}%)</span>
+                        </div>
+                        <div class="usage-progress-bar">
+                            <div class="usage-progress-fill ${getProgressClass(geminiPercent)}" style="width: ${geminiPercent}%"></div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // CLI 凭证：显示 Gemini 2.5 Pro
+                const geminiCalls = stats.gemini_2_5_pro_calls || 0;
+                const geminiLimit = stats.daily_limit_gemini_2_5_pro || 100;
+                const geminiPercent = Math.min((geminiCalls / geminiLimit) * 100, 100);
+
+                progressBarsHtml = `
+                    <div class="usage-progress">
+                        <div class="usage-progress-label">
+                            <span>Gemini 2.5 Pro</span>
+                            <span>${geminiCalls}/${geminiLimit} (${geminiPercent.toFixed(1)}%)</span>
+                        </div>
+                        <div class="usage-progress-bar">
+                            <div class="usage-progress-fill ${getProgressClass(geminiPercent)}" style="width: ${geminiPercent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 总调用次数进度条（两种类型都有）
+            const totalCalls = stats.total_calls || 0;
+            const totalLimit = stats.daily_limit_total || 500;
+            const totalPercent = Math.min((totalCalls / totalLimit) * 100, 100);
+
             div.innerHTML = `
                 <div class="usage-header">
                     <div class="usage-filename">${filename}</div>
                 </div>
-                
-                <div class="usage-progress">
-                    <div class="usage-progress-label">
-                        <span>Gemini 2.5 Pro</span>
-                        <span>${stats.gemini_2_5_pro_calls}/${stats.daily_limit_gemini_2_5_pro} (${geminiPercent.toFixed(1)}%)</span>
-                    </div>
-                    <div class="usage-progress-bar">
-                        <div class="usage-progress-fill ${getProgressClass(geminiPercent)}" style="width: ${geminiPercent}%"></div>
-                    </div>
-                </div>
-                
+
+                ${progressBarsHtml}
+
                 <div class="usage-progress">
                     <div class="usage-progress-label">
                         <span>所有模型</span>
-                        <span>${stats.total_calls}/${stats.daily_limit_total} (${totalPercent.toFixed(1)}%)</span>
+                        <span>${totalCalls}/${totalLimit} (${totalPercent.toFixed(1)}%)</span>
                     </div>
                     <div class="usage-progress-bar">
                         <div class="usage-progress-fill ${getTotalProgressClass(totalPercent)}" style="width: ${totalPercent}%"></div>
                     </div>
                 </div>
-                
+
                 <div class="usage-info">
                     <div class="usage-info-item" style="grid-column: 1 / -1;">
                         <span class="usage-info-label">下次重置时间</span>
                         <span class="usage-info-value">${formatTime(stats.next_reset_time)}</span>
                     </div>
                 </div>
-                
+
                 <div class="usage-actions">
                     <button class="usage-btn limits" onclick="openLimitsModal('${filename}')">设置限制</button>
                     <button class="usage-btn reset" onclick="resetSingleUsageStats('${filename}')">重置统计</button>
@@ -3785,11 +4398,28 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 return;
             }
 
+            // 弹出管理员密码验证对话框
+            const adminPassword = prompt('请输入管理员密码以重置所有统计：');
+
+            // 如果用户取消输入，则退出
+            if (adminPassword === null) {
+                showStatus('已取消重置操作', 'info');
+                return;
+            }
+
+            // 如果用户输入为空，提示错误
+            if (!adminPassword || adminPassword.trim() === '') {
+                showStatus('管理员密码不能为空', 'error');
+                return;
+            }
+
             try {
                 const response = await fetch('/usage/reset', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({})  // 不提供filename表示重置所有
+                    body: JSON.stringify({
+                        admin_password: adminPassword.trim()
+                    })  // 不提供filename表示重置所有
                 });
 
                 const data = await response.json();
@@ -3802,6 +4432,381 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 }
             } catch (error) {
                 console.error('resetAllUsageStats error:', error);
+                showStatus(`网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        // =====================================================================
+        // IP 统计相关函数
+        // =====================================================================
+
+        // 二级标签页切换
+        function switchUsageSubTab(subTabName) {
+            // 移除所有活动二级标签
+            document.querySelectorAll('.sub-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.sub-tab-content').forEach(content => content.style.display = 'none');
+
+            // 激活选中的二级标签
+            if (subTabName === 'credentials') {
+                document.getElementById('credentialsSubTab').classList.add('active');
+                document.getElementById('credentialsStatsContent').style.display = 'block';
+            } else if (subTabName === 'ip') {
+                document.getElementById('ipSubTab').classList.add('active');
+                document.getElementById('ipStatsContent').style.display = 'block';
+                // 切换到 IP 统计时自动加载数据
+                refreshIPStats();
+            }
+        }
+
+        // 刷新 IP 统计
+        async function refreshIPStats() {
+            const ipLoading = document.getElementById('ipLoading');
+            const ipList = document.getElementById('ipList');
+
+            try {
+                ipLoading.style.display = 'block';
+                ipList.innerHTML = '';
+
+                // 获取 IP 统计数据
+                const [statsResponse, summaryResponse] = await Promise.all([
+                    fetch('/ip/stats', {
+                        method: 'GET',
+                        headers: getAuthHeaders()
+                    }),
+                    fetch('/ip/summary', {
+                        method: 'GET',
+                        headers: getAuthHeaders()
+                    })
+                ]);
+
+                const statsData = await statsResponse.json();
+                const summaryData = await summaryResponse.json();
+
+                if (statsResponse.ok && summaryResponse.ok) {
+                    // 更新概览统计
+                    document.getElementById('totalIPs').textContent = summaryData.data.total_ips || 0;
+                    document.getElementById('activeIPs').textContent = summaryData.data.active_ips || 0;
+                    document.getElementById('bannedIPs').textContent = summaryData.data.banned_ips || 0;
+                    document.getElementById('rateLimitedIPs').textContent = summaryData.data.rate_limited_ips || 0;
+                    document.getElementById('totalIPRequests').textContent = summaryData.data.total_requests || 0;
+
+                    // 渲染 IP 列表
+                    renderIPList(statsData.data);
+
+                    showStatus(`已加载 ${summaryData.data.total_ips} 个 IP 的统计数据`, 'success');
+                } else {
+                    showStatus('加载 IP 统计失败', 'error');
+                }
+            } catch (error) {
+                console.error('refreshIPStats error:', error);
+                showStatus(`网络错误: ${error.message}`, 'error');
+            } finally {
+                ipLoading.style.display = 'none';
+            }
+        }
+
+        // 渲染 IP 列表
+        function renderIPList(ipsData) {
+            const ipList = document.getElementById('ipList');
+            ipList.innerHTML = '';
+
+            if (!ipsData || Object.keys(ipsData).length === 0) {
+                ipList.innerHTML = '<p style="text-align: center; color: #666;">暂无 IP 统计数据</p>';
+                return;
+            }
+
+            // 按请求次数排序（已经在后端排序）
+            for (const [ip, stats] of Object.entries(ipsData)) {
+                const card = createIPCard(ip, stats);
+                ipList.appendChild(card);
+            }
+        }
+
+        // 创建 IP 卡片
+        function createIPCard(ip, stats) {
+            const div = document.createElement('div');
+            div.className = 'ip-card';
+
+            const status = stats.status || 'active';
+            const currentRateLimit = stats.rate_limit_seconds || 0;
+
+            let statusText = {
+                'active': '活跃',
+                'banned': '封禁',
+                'rate_limited': '限速'
+            }[status] || status;
+
+            // 如果是限速状态，显示每分钟请求次数
+            if (status === 'rate_limited' && currentRateLimit > 0) {
+                const requestsPerMin = Math.round(60 / currentRateLimit);
+                statusText = `限速 (${requestsPerMin}次/分)`;
+            }
+
+            // 如果是封禁状态，计算剩余时间
+            let banTimeInfo = '';
+            if (status === 'banned' && stats.banned_time) {
+                const bannedTime = stats.banned_time * 1000; // 转换为毫秒
+                const now = Date.now();
+                const elapsed = now - bannedTime;
+                const remaining = 86400000 - elapsed; // 24小时 = 86400000毫秒
+
+                if (remaining > 0) {
+                    const hours = Math.floor(remaining / 3600000);
+                    const minutes = Math.floor((remaining % 3600000) / 60000);
+                    statusText = `封禁 (${hours}小时${minutes}分后解封)`;
+                } else {
+                    statusText = `封禁 (即将自动解封)`;
+                }
+            }
+
+            // 处理模型使用统计
+            const modelsUsed = stats.models_used || {};
+            const modelsHtml = Object.entries(modelsUsed)
+                .map(([model, count]) => `<span style="margin-right: 10px;">${model}: ${count}次</span>`)
+                .join('') || '无';
+
+            // 如果有自动解封记录，显示提示
+            if (stats.auto_unbanned_time) {
+                banTimeInfo = `<div class="ip-info-item" style="grid-column: 1 / -1; color: #28a745;">
+                    <span class="ip-info-label">🔓 自动解封</span>
+                    <span class="ip-info-value">${stats.auto_unbanned_time}</span>
+                </div>`;
+            }
+
+            div.innerHTML = `
+                <div class="ip-header">
+                    <div class="ip-address">${ip}</div>
+                    <div class="ip-status ${status}">${statusText}</div>
+                </div>
+
+                <div class="ip-info">
+                    <div class="ip-info-item">
+                        <span class="ip-info-label">📍 地理位置</span>
+                        <span class="ip-info-value">${stats.location || '未知'}</span>
+                    </div>
+                    <div class="ip-info-item">
+                        <span class="ip-info-label">📊 总请求数</span>
+                        <span class="ip-info-value">${stats.total_requests || 0} 次</span>
+                    </div>
+                    <div class="ip-info-item">
+                        <span class="ip-info-label">🕐 首次访问</span>
+                        <span class="ip-info-value">${stats.first_seen || '未知'}</span>
+                    </div>
+                    <div class="ip-info-item">
+                        <span class="ip-info-label">🕑 最后访问</span>
+                        <span class="ip-info-value">${stats.last_seen || '未知'}</span>
+                    </div>
+                    ${stats.banned_at ? `<div class="ip-info-item" style="grid-column: 1 / -1; color: #dc3545;">
+                        <span class="ip-info-label">🚫 封禁时间</span>
+                        <span class="ip-info-value">${stats.banned_at}</span>
+                    </div>` : ''}
+                    ${banTimeInfo}
+                    <div class="ip-info-item" style="grid-column: 1 / -1;">
+                        <span class="ip-info-label">🤖 使用模型</span>
+                        <span class="ip-info-value">${modelsHtml}</span>
+                    </div>
+                </div>
+
+                <div class="ip-actions">
+                    ${status !== 'active' ? `<button class="ip-btn enable" onclick="setIPStatus('${ip}', 'active')">启用</button>` : ''}
+                    ${status !== 'banned' ? `<button class="ip-btn ban" onclick="setIPStatus('${ip}', 'banned')">封禁</button>` : ''}
+                    <button class="ip-btn rate-limit" onclick="setIPRateLimit('${ip}', ${currentRateLimit})">${status === 'rate_limited' ? '调整限速' : '限速'}</button>
+                </div>
+            `;
+
+            return div;
+        }
+
+        // 设置 IP 状态
+        async function setIPStatus(ip, status) {
+            const statusNames = {
+                'active': '启用',
+                'banned': '封禁',
+                'rate_limited': '限速'
+            };
+
+            // 启用操作需要管理员密码验证
+            if (status === 'active') {
+                const adminPassword = prompt(`启用 IP 需要管理员密码验证：\n\nIP: ${ip}\n请输入管理员密码：`);
+
+                // 如果用户取消输入
+                if (adminPassword === null) {
+                    showStatus('已取消启用操作', 'info');
+                    return;
+                }
+
+                // 如果用户输入为空
+                if (!adminPassword || adminPassword.trim() === '') {
+                    showStatus('管理员密码不能为空', 'error');
+                    return;
+                }
+
+                // 发送带密码的请求
+                try {
+                    const response = await fetch('/ip/update-status', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({
+                            ip: ip,
+                            status: status,
+                            admin_password: adminPassword.trim()
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        showStatus(data.message, 'success');
+                        await refreshIPStats();
+                    } else {
+                        showStatus(`操作失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('setIPStatus error:', error);
+                    showStatus(`网络错误: ${error.message}`, 'error');
+                }
+                return;
+            }
+
+            // 封禁和限速操作无需密码，只需确认
+            if (!confirm(`确定要${statusNames[status]} IP ${ip} 吗？`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/ip/update-status', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        ip: ip,
+                        status: status
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus(data.message, 'success');
+                    await refreshIPStats();
+                } else {
+                    showStatus(`操作失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                console.error('setIPStatus error:', error);
+                showStatus(`网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        // 设置 IP 限速（狼人杀模式：只能收紧不能放松）
+        // 使用"每分钟请求次数"：增加次数需要管理员密码
+        async function setIPRateLimit(ip, currentRateLimit = 0) {
+            // 将当前的秒数转换为每分钟次数显示
+            const currentRequestsPerMin = currentRateLimit > 0 ? Math.round(60 / currentRateLimit) : 5;
+
+            const promptMessage = currentRateLimit > 0
+                ? `当前限速：${currentRequestsPerMin}次/分钟\n\n请输入每分钟允许请求次数：\n例如：5 表示该 IP 每分钟最多请求5次`
+                : `请输入每分钟允许请求次数（默认5次）：\n例如：5 表示该 IP 每分钟最多请求5次`;
+
+            const defaultValue = currentRequestsPerMin.toString();
+            const requestsInput = prompt(promptMessage, defaultValue);
+
+            if (requestsInput === null) {
+                return; // 用户取消
+            }
+
+            const requestsPerMin = parseInt(requestsInput);
+
+            if (isNaN(requestsPerMin) || requestsPerMin <= 0) {
+                showStatus('每分钟请求次数必须是大于0的数字', 'error');
+                return;
+            }
+
+            // 转换为秒数（后端存储格式）
+            const rateLimitSeconds = Math.round(60 / requestsPerMin);
+
+            // 🎮 狼人杀机制：增加请求次数（放松限制）需要管理员密码
+            if (currentRateLimit > 0 && requestsPerMin > currentRequestsPerMin) {
+                const adminPassword = prompt(
+                    `⚠️ 增加请求次数需要管理员密码验证\n\n` +
+                    `当前限速：${currentRequestsPerMin}次/分钟\n` +
+                    `新限速：${requestsPerMin}次/分钟\n\n` +
+                    `这将使该 IP 可以更频繁地请求，需要管理员授权。\n` +
+                    `请输入管理员密码：`
+                );
+
+                // 用户取消
+                if (adminPassword === null) {
+                    showStatus('已取消操作', 'info');
+                    return;
+                }
+
+                // 密码为空
+                if (!adminPassword || adminPassword.trim() === '') {
+                    showStatus('管理员密码不能为空', 'error');
+                    return;
+                }
+
+                // 发送带密码的请求
+                try {
+                    const response = await fetch('/ip/update-status', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({
+                            ip: ip,
+                            status: 'rate_limited',
+                            rate_limit_seconds: rateLimitSeconds,
+                            admin_password: adminPassword.trim()
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        showStatus(data.message, 'success');
+                        await refreshIPStats();
+                    } else {
+                        showStatus(`操作失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('setIPRateLimit error:', error);
+                    showStatus(`网络错误: ${error.message}`, 'error');
+                }
+                return;
+            }
+
+            // 收紧限速或首次设置限速，无需密码
+            if (currentRateLimit === 0 || requestsPerMin <= currentRequestsPerMin) {
+                const action = currentRateLimit > 0 ? '收紧限速' : '设置限速';
+                const confirmMsg = currentRateLimit > 0
+                    ? `确定要${action}吗？\n\nIP: ${ip}\n当前：${currentRequestsPerMin}次/分钟\n新设置：${requestsPerMin}次/分钟`
+                    : `确定要${action}吗？\n\nIP: ${ip}\n限速：${requestsPerMin}次/分钟`;
+
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+            }
+
+            try {
+                const response = await fetch('/ip/update-status', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        ip: ip,
+                        status: 'rate_limited',
+                        rate_limit_seconds: rateLimitSeconds
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus(data.message, 'success');
+                    await refreshIPStats();
+                } else {
+                    showStatus(`操作失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                console.error('setIPRateLimit error:', error);
                 showStatus(`网络错误: ${error.message}`, 'error');
             }
         }
@@ -3827,13 +4832,20 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             serviceUsageApiUrl: 'https://gcli-api.sukaka.top/serviceusage'
         };
 
-        // 官方端点配置
+        // GeminiCLI 官方端点配置
         const officialUrls = {
             codeAssistEndpoint: 'https://cloudcode-pa.googleapis.com',
             oauthProxyUrl: 'https://oauth2.googleapis.com',
             googleapisProxyUrl: 'https://www.googleapis.com',
             resourceManagerApiUrl: 'https://cloudresourcemanager.googleapis.com',
             serviceUsageApiUrl: 'https://serviceusage.googleapis.com'
+        };
+
+        // Antigravity 官方端点配置
+        const antigravityOfficialUrls = {
+            antigravityApiEndpoint: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse',
+            antigravityModelsEndpoint: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels',
+            antigravityOauthEndpoint: 'https://oauth2.googleapis.com/token'
         };
 
         // 使用镜像网址
@@ -3852,9 +4864,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
-        // 还原官方端点
+        // 还原 GeminiCLI 官方端点
         function restoreOfficialUrls() {
-            if (confirm('确定要将所有端点配置为官方地址吗？\n\n官方端点：\n• Code Assist: https://cloudcode-pa.googleapis.com\n• OAuth: https://oauth2.googleapis.com\n• Google APIs: https://www.googleapis.com\n• Resource Manager: https://cloudresourcemanager.googleapis.com\n• Service Usage: https://serviceusage.googleapis.com')) {
+            if (confirm('确定要将 GeminiCLI 端点配置为官方地址吗？\n\n官方端点：\n• Code Assist: https://cloudcode-pa.googleapis.com\n• OAuth: https://oauth2.googleapis.com\n• Google APIs: https://www.googleapis.com\n• Resource Manager: https://cloudresourcemanager.googleapis.com\n• Service Usage: https://serviceusage.googleapis.com')) {
 
                 // 设置所有端点为官方地址
                 for (const [fieldId, url] of Object.entries(officialUrls)) {
@@ -3864,7 +4876,23 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     }
                 }
 
-                showStatus('✅ 已切换到官方端点配置，记得点击"保存配置"按钮保存设置', 'success');
+                showStatus('✅ 已切换到 GeminiCLI 官方端点配置，记得点击"保存配置"按钮保存设置', 'success');
+            }
+        }
+
+        // 还原 Antigravity 官方端点
+        function restoreAntigravityOfficialUrls() {
+            if (confirm('确定要将 Antigravity 端点配置为官方地址吗？\n\n官方端点：\n• API: https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse\n• Models: https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels\n• OAuth: https://oauth2.googleapis.com/token')) {
+
+                // 设置所有 Antigravity 端点为官方地址
+                for (const [fieldId, url] of Object.entries(antigravityOfficialUrls)) {
+                    const field = document.getElementById(fieldId);
+                    if (field && !field.disabled) {
+                        field.value = url;
+                    }
+                }
+
+                showStatus('✅ 已切换到 Antigravity 官方端点配置，记得点击"保存配置"按钮保存设置', 'success');
             }
         }
 
