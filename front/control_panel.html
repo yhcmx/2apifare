@@ -4466,7 +4466,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         // IP 分页相关变量
         let allIPsData = {};
-        let currentPage = 1;
+        let currentIPPage = 1;
         const itemsPerPage = 20;
 
         // 刷新 IP 统计
@@ -4503,7 +4503,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                     // 保存所有 IP 数据
                     allIPsData = statsData.data || {};
-                    currentPage = 1;
+                    currentIPPage = 1;
 
                     // 渲染第一页
                     renderIPList();
@@ -4535,7 +4535,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             // 转换为数组并分页
             const ipsArray = Object.entries(allIPsData);
             const totalPages = Math.ceil(ipsArray.length / itemsPerPage);
-            const startIndex = (currentPage - 1) * itemsPerPage;
+            const startIndex = (currentIPPage - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
             const currentPageData = ipsArray.slice(startIndex, endIndex);
 
@@ -4548,9 +4548,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             // 更新分页控制
             if (totalPages > 1) {
                 pagination.style.display = 'block';
-                document.getElementById('pageInfo').textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页 (共 ${ipsArray.length} 个 IP)`;
-                document.getElementById('prevPageBtn').disabled = currentPage === 1;
-                document.getElementById('nextPageBtn').disabled = currentPage === totalPages;
+                document.getElementById('pageInfo').textContent = `第 ${currentIPPage} 页 / 共 ${totalPages} 页 (共 ${ipsArray.length} 个 IP)`;
+                document.getElementById('prevPageBtn').disabled = currentIPPage === 1;
+                document.getElementById('nextPageBtn').disabled = currentIPPage === totalPages;
             } else {
                 pagination.style.display = 'none';
             }
@@ -4558,8 +4558,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         // 加载上一页
         function loadPreviousPage() {
-            if (currentPage > 1) {
-                currentPage--;
+            if (currentIPPage > 1) {
+                currentIPPage--;
                 renderIPList();
                 // 滚动到列表顶部
                 document.getElementById('ipListSection').scrollIntoView({ behavior: 'smooth' });
@@ -4569,8 +4569,8 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // 加载下一页
         function loadNextPage() {
             const totalPages = Math.ceil(Object.keys(allIPsData).length / itemsPerPage);
-            if (currentPage < totalPages) {
-                currentPage++;
+            if (currentIPPage < totalPages) {
+                currentIPPage++;
                 renderIPList();
                 // 滚动到列表顶部
                 document.getElementById('ipListSection').scrollIntoView({ behavior: 'smooth' });
