@@ -122,6 +122,31 @@
 - 凭证健康状态
 - API 调用成功率统计
 
+### 🎮 IP 管理和狼人杀娱乐功能
+
+**IP 智能管理**
+- 自动记录 IP 请求统计（仅统计成功的 AI 响应）
+- IP 地理位置查询（三层免费 API 备份）
+- IP 状态管理（活跃/封禁/限速）
+- 24小时自动解封机制
+- 限速单位：每分钟请求次数
+
+**狼人杀测试玩法** 🐻
+- 用户可互相封禁/限速对方 IP（无需密码）
+- 增加请求次数需要管理员密码验证
+- 封禁 IP 24小时后自动解封
+- 前端实时显示封禁倒计时
+- ⚠️ **仅供测试娱乐使用，请勿用于生产环境**
+
+### 🌐 Antigravity API 支持
+
+**ANT/ 前缀模型路由**
+- 支持 `ANT/` 前缀访问 Antigravity 模型
+- 独立的 Antigravity 凭证管理系统
+- 自动 Token 刷新和轮换机制
+- 使用统计和错误跟踪
+- 支持流式和非流式响应
+
 ### 🔧 高级配置和自定义
 
 **网络和代理配置**
@@ -563,6 +588,10 @@ export MONGODB_URI="mongodb://localhost:27017/gcli2api?readPreference=secondaryP
 **MongoDB 配置（第二优先级）**
 - `MONGODB_URI`: MongoDB 连接字符串（设置后启用 MongoDB 模式）
 - `MONGODB_DATABASE`: MongoDB 数据库名称（默认：gcli2api）
+
+**Antigravity API 配置**
+- `ANTIGRAVITY_CLIENT_ID`: Antigravity OAuth Client ID（必需，用于ANT/前缀模型）
+- `ANTIGRAVITY_CLIENT_SECRET`: Antigravity OAuth Client Secret（必需，用于ANT/前缀模型）
 
 **凭证配置**
 
