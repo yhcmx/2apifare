@@ -213,12 +213,9 @@ ANTIGRAVITY_BASE_MODELS = [
     "claude-sonnet-4-5",
     "claude-sonnet-4-5-thinking",
     "gemini-2.5-flash-lite",
-    "gemini-2.5-flash-image",
     "gemini-2.5-flash",
     "gemini-2.5-flash-thinking",
-    "gemini-2.5-pro",
     "gemini-3-pro-high",
-    "gemini-3-pro-image",
     "gemini-3-pro-low",
     "gpt-oss-120b-medium",
     "rev19-uic3-1p",
@@ -228,8 +225,6 @@ ANTIGRAVITY_BASE_MODELS = [
 ANTIGRAVITY_SPECIAL_MODELS = [
     "claude-sonnet-4-5-thinking",
     "gemini-2.5-flash-thinking",
-    "gemini-2.5-flash-image",
-    "gemini-3-pro-image",
 ]
 
 
