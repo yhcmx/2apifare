@@ -134,6 +134,15 @@ async def chat_completions(request: Request, token: str = Depends(authenticate))
     elif real_ip:
         client_ip = real_ip.strip()
 
+    # ========== 禁止 IPv6 请求 ==========
+    # 检测 IPv6 地址（包含冒号）
+    if ":" in client_ip:
+        log.warning(f"Blocked IPv6 request from: {client_ip}")
+        raise HTTPException(
+            status_code=403,
+            detail="IPv6 requests are not supported. Please use IPv4 to access this service."
+        )
+
     # 获取 User-Agent
     user_agent = request.headers.get("User-Agent", "unknown")
 
