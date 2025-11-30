@@ -8533,11 +8533,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // 使用"每分钟请求次数"：增加次数需要管理员密码
         async function setIPRateLimit(ip, currentRateLimit = 0) {
             // 将当前的秒数转换为每分钟次数显示
-            const currentRequestsPerMin = currentRateLimit > 0 ? Math.round(60 / currentRateLimit) : 5;
+            const currentRequestsPerMin = currentRateLimit > 0 ? Math.round(60 / currentRateLimit) : 10;
 
             const promptMessage = currentRateLimit > 0
-                ? `当前限速：${currentRequestsPerMin}次/分钟\n\n请输入每分钟允许请求次数：\n例如：5 表示该 IP 每分钟最多请求5次`
-                : `请输入每分钟允许请求次数（默认5次）：\n例如：5 表示该 IP 每分钟最多请求5次`;
+                ? `当前限速：${currentRequestsPerMin}次/分钟\n\n请输入每分钟允许请求次数：\n例如：10 表示该 IP 每分钟最多请求10次`
+                : `请输入每分钟允许请求次数（默认10次）：\n例如：10 表示该 IP 每分钟最多请求10次`;
 
             const defaultValue = currentRequestsPerMin.toString();
             const requestsInput = prompt(promptMessage, defaultValue);
