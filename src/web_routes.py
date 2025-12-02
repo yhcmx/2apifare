@@ -1339,9 +1339,18 @@ async def get_config(token: str = Depends(verify_token)):
         storage_adapter = await get_storage_adapter()
         storage_config = await storage_adapter.get_all_config()
 
-        # 合并存储系统配置（不覆盖环境变量）
+        # 敏感字段黑名单 - 这些字段不应该返回给前端
+        SENSITIVE_FIELDS = {
+            "backup",                      # 整个 backup 配置块（包含 github_token）
+            "github_token",                # GitHub PAT
+            "antigravity_client_secret",   # Antigravity OAuth 密钥
+            "antigravity_client_id",       # Antigravity OAuth 客户端ID
+            "admin_password",              # 管理员密码
+        }
+
+        # 合并存储系统配置（不覆盖环境变量，且过滤敏感字段）
         for key, value in storage_config.items():
-            if key not in env_locked:
+            if key not in env_locked and key not in SENSITIVE_FIELDS:
                 current_config[key] = value
 
         # 性能配置
@@ -2342,9 +2351,10 @@ async def save_guestbook_data(messages):
     # 确保目录存在
     os.makedirs(os.path.dirname(guestbook_file), exist_ok=True)
 
-    # 只保留最新的100条留言
-    if len(messages) > 100:
+    # 当留言达到200条时，删除前100条，保留最新100条
+    if len(messages) >= 200:
         messages = messages[-100:]
+        log.info(f"留言板清理：删除旧留言，保留最新100条")
 
     data = {"messages": messages, "last_updated": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).isoformat()}
 
@@ -2363,8 +2373,8 @@ async def get_guestbook_list(token: str = Depends(verify_token)):
     try:
         messages = await load_guestbook_data()
 
-        # 返回最新的100条，倒序排列（最新的在前面）
-        messages_reversed = list(reversed(messages[-100:]))
+        # 返回所有留言（最多200条），倒序排列（最新的在前面）
+        messages_reversed = list(reversed(messages))
 
         return JSONResponse(
             content={"messages": messages_reversed, "count": len(messages_reversed)}

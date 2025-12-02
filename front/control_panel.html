@@ -3991,7 +3991,7 @@
                                       onfocus="this.style.borderColor='rgba(110, 181, 255, 0.5)'; this.style.boxShadow='0 0 0 3px rgba(66, 133, 244, 0.2)'; this.style.background='rgba(45, 55, 75, 0.75)'"
                                       onblur="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.boxShadow='none'; this.style.background='rgba(40, 50, 65, 0.6)'"
                                       oninput="updateCharCount()"
-                                      onkeydown="if(event.ctrlKey && event.key==='Enter') submitGuestbook()"></textarea>
+                                      onkeydown="handleGuestbookKeydown(event)"></textarea>
 
                             <button onclick="submitGuestbook()"
                                     style="padding: 10px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; white-space: nowrap; height: 42px; backdrop-filter: blur(10px); box-shadow: 0 4px 16px rgba(66, 133, 244, 0.3);"
@@ -9005,8 +9005,25 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
         }
 
+        // 防止重复提交的标志
+        let isSubmittingGuestbook = false;
+
+        // 处理留言板键盘事件（防止Ctrl+Enter重复触发）
+        function handleGuestbookKeydown(event) {
+            if (event.ctrlKey && event.key === 'Enter') {
+                event.preventDefault();  // 阻止默认行为
+                event.stopPropagation(); // 阻止事件冒泡
+                submitGuestbook();
+            }
+        }
+
         // 提交留言
         async function submitGuestbook() {
+            // 防止重复提交
+            if (isSubmittingGuestbook) {
+                return;
+            }
+
             const username = document.getElementById('guestbookName').value.trim();
             const message = document.getElementById('guestbookMessage').value.trim();
             const emoji = document.getElementById('currentEmoji').textContent;
@@ -9037,6 +9054,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 showStatus('留言内容最多200个字符', 'error');
                 return;
             }
+
+            // 设置提交中标志
+            isSubmittingGuestbook = true;
 
             try {
                 const response = await fetch('/guestbook/submit', {
@@ -9069,6 +9089,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             } catch (error) {
                 console.error('Submit guestbook error:', error);
                 showStatus(`网络错误: ${error.message}`, 'error');
+            } finally {
+                // 重置提交标志（延迟一点防止快速点击）
+                setTimeout(() => {
+                    isSubmittingGuestbook = false;
+                }, 500);
             }
         }
 
