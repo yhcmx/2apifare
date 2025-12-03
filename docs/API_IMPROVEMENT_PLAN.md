@@ -12,7 +12,7 @@
 | 5xx 服务器错误重试 | ✅ 支持 | ❌ 缺少 | ⭐⭐ 中 |
 | 网络错误降级 | ✅ 支持 | ❌ 缺少 | ⭐⭐ 中 |
 | Token 提前刷新 | ✅ 50分钟 | ✅ 5分钟 | ✅ 已实现 |
-| 删除 safetySettings | ✅ 删除 | ⚠️ 设为 BLOCK_NONE | ⭐ 低 |
+| 删除 safetySettings | ✅ 删除 | ✅ BLOCK_NONE (正确) | ⏭️ 不适用 |
 | 删除 maxOutputTokens | ✅ 删除 | ⚠️ 保留 | ⭐ 低 |
 
 ---
@@ -285,7 +285,7 @@ REMOVE_MAX_OUTPUT_TOKENS = True  # 是否删除 maxOutputTokens
    - [ ] 改进项 5：网络错误降级
 
 3. **第三阶段（低优先级/可选）**
-   - [ ] 改进项 6：safetySettings 处理方式
+   - [x] 改进项 6：safetySettings 处理方式 ⏭️ (不适用 - 用户场景需要禁用安全过滤)
    - [ ] 改进项 7：maxOutputTokens 处理方式
 
 ---
