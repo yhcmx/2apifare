@@ -722,7 +722,9 @@ async def handle_antigravity_request(request_data: ChatCompletionRequest):
                         access_token = account.get("access_token")
 
                         if not access_token:
-                            log.error(f"Antigravity account {account.get('email')} missing access_token")
+                            log.error(f"Antigravity account {account.get('email')} missing access_token, disabling")
+                            # 缺少 access_token 说明账号数据损坏，禁用并切换
+                            await ant_cred_mgr.disable_credential(virtual_filename)
                             await ant_cred_mgr.force_rotate_credential()
                             continue
 
@@ -789,21 +791,24 @@ async def handle_antigravity_request(request_data: ChatCompletionRequest):
 
                         # ============ 401 错误：先尝试刷新 token ============
                         # 401 可能是 access_token 过期，刷新后可能恢复
-                        if error_code == 401 and attempt < max_retries - 1:
+                        if error_code == 401:
                             log.warning(f"[AUTH REFRESH] 401 error, attempting token refresh for {account.get('email', 'unknown')}")
                             refresh_success = await ant_cred_mgr._refresh_access_token(account)
                             
                             if refresh_success:
                                 log.info(f"[AUTH REFRESH] Token refreshed successfully, retrying with same account")
-                                await asyncio.sleep(1.0)
-                                continue  # 用刷新后的 token 重试（不切换凭证）
+                                if attempt < max_retries - 1:
+                                    await asyncio.sleep(1.0)
+                                    continue  # 用刷新后的 token 重试（不切换凭证）
+                                # 最后一次重试也刷新成功了，但不再重试，直接返回错误
                             else:
-                                # 刷新失败，禁用账号并切换
+                                # 刷新失败，禁用账号
                                 log.warning(f"[AUTH REFRESH] Token refresh failed, disabling account: {virtual_filename}")
                                 await ant_cred_mgr.disable_credential(virtual_filename)
-                                await ant_cred_mgr.force_rotate_credential()
-                                await asyncio.sleep(1.0)
-                                continue
+                                if attempt < max_retries - 1:
+                                    await ant_cred_mgr.force_rotate_credential()
+                                    await asyncio.sleep(1.0)
+                                    continue
 
                         # 检查是否需要重试（使用辅助函数）
                         should_retry = await _check_should_retry_antigravity(error_code, auto_ban_error_codes)
