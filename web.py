@@ -137,6 +137,10 @@ app.include_router(web_router, prefix="", tags=["Web Interface"])
 from antigravity.api import router as antigravity_router
 app.include_router(antigravity_router, prefix="/antigravity", tags=["Antigravity Auth"])
 
+# Antigravity 账号管理路由
+from src.routes.antigravity_admin import router as antigravity_admin_router
+app.include_router(antigravity_admin_router, prefix="", tags=["Antigravity Admin"])
+
 # 静态文件路由 - 服务docs目录下的文件（如捐赠图片）
 app.mount("/docs", StaticFiles(directory="docs"), name="docs")
 

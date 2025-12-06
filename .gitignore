@@ -6,6 +6,7 @@
 *.toml
 !pyproject.toml
 creds/
+!creds/*.example
 CLAUDE.md
 
 # Environment configuration

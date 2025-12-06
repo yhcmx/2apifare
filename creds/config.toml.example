@@ -1,0 +1,153 @@
+# ================================================================
+# GCLI2API 配置文件示例
+# 复制此文件为 config.toml 并根据需要修改配置值
+# ================================================================
+
+# ================================================================
+# 密码配置
+# ================================================================
+
+# 聊天API访问密码（用于OpenAI和Gemini API端点认证）
+api_password = "your_api_password"
+
+# 控制面板访问密码（用于Web界面登录认证）
+panel_password = "your_panel_password"
+
+# 管理员密码（用于配置管理和敏感操作）
+admin_password = "adm123"
+
+# 通用访问密码（兼容性保留，优先级最高）
+password = "pwd"
+
+# ================================================================
+# 服务器配置
+# ================================================================
+
+# 服务器监听地址
+host = "0.0.0.0"
+
+# 服务器端口
+port = 7861
+
+# ================================================================
+# Google API 配置
+# ================================================================
+
+# 凭证文件目录
+credentials_dir = "./creds"
+
+# Code Assist API 端点
+code_assist_endpoint = "https://cloudcode-pa.googleapis.com"
+
+# OAuth 代理 URL
+oauth_proxy_url = "https://oauth2.googleapis.com"
+
+# Google APIs 代理 URL
+googleapis_proxy_url = "https://www.googleapis.com"
+
+# Resource Manager API URL
+resource_manager_api_url = "https://cloudresourcemanager.googleapis.com"
+
+# Service Usage API URL
+service_usage_api_url = "https://serviceusage.googleapis.com"
+
+# 最大备份文件数量
+max_backup_count = 10
+
+# 代理配置（可选）
+proxy = ""
+
+# ================================================================
+# 凭证轮换配置
+# ================================================================
+
+# 每个凭证使用多少次调用后轮换到下一个
+calls_per_rotation = 100
+
+# ================================================================
+# 错误处理和重试配置
+# ================================================================
+
+# 是否启用自动封禁功能
+auto_ban_enabled = true
+
+# 自动封禁的错误码列表
+# 401: 未授权, 403: 无权限, 404: Token过期/模型不存在, 429: 配额耗尽
+auto_ban_error_codes = [401, 403, 404, 429]
+
+# 是否启用 429 错误重试
+retry_429_enabled = true
+
+# 429 错误最大重试次数
+retry_429_max_retries = 5
+
+# 429 错误重试间隔（秒）
+retry_429_interval = 1
+
+# ================================================================
+# 兼容性配置
+# ================================================================
+
+# 兼容性模式（启用后所有system消息全部转换成user，停用system_instructions）
+compatibility_mode_enabled = true
+
+# ================================================================
+# 高级功能配置
+# ================================================================
+
+# 流式抗截断最大尝试次数
+anti_truncation_max_attempts = 3
+
+# Web面板缓存时间（秒）
+panel_cache_ttl = 300
+
+# ================================================================
+# Antigravity 配置
+# ================================================================
+
+# Antigravity API 端点
+antigravity_api_endpoint = "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse"
+
+# Antigravity 备用 API 端点（端点降级使用）
+antigravity_api_endpoint_backup = ""
+
+# Antigravity 模型列表端点
+antigravity_models_endpoint = "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels"
+
+# Antigravity OAuth 端点
+antigravity_oauth_endpoint = "https://oauth2.googleapis.com/token"
+
+# Antigravity Client ID
+antigravity_client_id = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
+
+# Antigravity Client Secret
+antigravity_client_secret = "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"
+
+# Antigravity 跳过项目验证配置（Pro 账号功能）
+# - true: 跳过 API 验证，使用随机生成的 projectId（适用于 Pro 账号/家庭组共享号）
+# - false: 需要 API 验证获取真实 projectId（免费账号，官方已修复随机 projectId 漏洞）
+# 使用场景：
+#   Pro 订阅账号/家庭组共享号：设为 true（跳过验证，立即可用）
+#   免费账号（有资格）：设为 false（API 验证通过后正常使用）
+#   免费账号（无资格）：设为 false（API 验证失败，账号被标记无资格）
+antigravity_skip_project_verification = false
+
+# ================================================================
+# 备份配置
+# ================================================================
+
+[backup]
+# 是否启用自动备份
+enabled = false
+
+# GitHub Personal Access Token（用于凭证备份）
+github_token = ""
+
+# GitHub 备份仓库 URL
+github_repo = ""
+
+# 需要备份的文件列表
+backup_files = ["creds.toml", "accounts.toml"]
+
+# 自动提交消息
+auto_commit_message = "🔒 自动备份凭证文件"
