@@ -787,6 +787,24 @@ async def handle_antigravity_request(request_data: ChatCompletionRequest):
                             await asyncio.sleep(delay)
                             continue  # 使用同一凭证重试
 
+                        # ============ 401 错误：先尝试刷新 token ============
+                        # 401 可能是 access_token 过期，刷新后可能恢复
+                        if error_code == 401 and attempt < max_retries - 1:
+                            log.warning(f"[AUTH REFRESH] 401 error, attempting token refresh for {account.get('email', 'unknown')}")
+                            refresh_success = await ant_cred_mgr._refresh_access_token(account)
+                            
+                            if refresh_success:
+                                log.info(f"[AUTH REFRESH] Token refreshed successfully, retrying with same account")
+                                await asyncio.sleep(1.0)
+                                continue  # 用刷新后的 token 重试（不切换凭证）
+                            else:
+                                # 刷新失败，禁用账号并切换
+                                log.warning(f"[AUTH REFRESH] Token refresh failed, disabling account: {virtual_filename}")
+                                await ant_cred_mgr.disable_credential(virtual_filename)
+                                await ant_cred_mgr.force_rotate_credential()
+                                await asyncio.sleep(1.0)
+                                continue
+
                         # 检查是否需要重试（使用辅助函数）
                         should_retry = await _check_should_retry_antigravity(error_code, auto_ban_error_codes)
 
@@ -794,7 +812,7 @@ async def handle_antigravity_request(request_data: ChatCompletionRequest):
                             # 指数退避：base_delay * 2^attempt (1s, 2s, 4s, 8s...)
                             base_delay = 1.0
                             delay = base_delay * (2 ** attempt)
-                            # 403/401 等错误：切换凭证并重试
+                            # 403/404/429 等错误：切换凭证并重试
                             log.warning(f"[RETRY] {error_code} error encountered, waiting {delay:.1f}s before retry ({attempt + 1}/{max_retries})")
                             await ant_cred_mgr.force_rotate_credential()
                             await asyncio.sleep(delay)
