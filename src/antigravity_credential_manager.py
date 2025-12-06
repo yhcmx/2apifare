@@ -396,12 +396,17 @@ class AntigravityCredentialManager:
             oauth_endpoint = await get_antigravity_oauth_endpoint()
             log.debug(f"Using OAuth endpoint: {oauth_endpoint}")
 
+            # 从 URL 提取 Host（支持代理）
+            from urllib.parse import urlparse
+            parsed_url = urlparse(oauth_endpoint)
+            oauth_host = parsed_url.netloc
+
             # 发送刷新请求
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.post(
                     oauth_endpoint,
                     headers={
-                        "Host": "oauth2.googleapis.com",
+                        "Host": oauth_host,
                         "User-Agent": "Go-http-client/1.1",
                         "Content-Type": "application/x-www-form-urlencoded",
                         "Accept-Encoding": "gzip"
@@ -934,12 +939,17 @@ class AntigravityCredentialManager:
             load_code_assist_url = f"{base_url}:loadCodeAssist"
             log.debug(f"Using loadCodeAssist endpoint: {load_code_assist_url}")
 
+            # 从 URL 提取 Host（支持代理）
+            from urllib.parse import urlparse
+            parsed_url = urlparse(load_code_assist_url)
+            api_host = parsed_url.netloc
+
             # 调用 loadCodeAssist API
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     load_code_assist_url,
                     headers={
-                        'Host': 'daily-cloudcode-pa.sandbox.googleapis.com',
+                        'Host': api_host,
                         'User-Agent': 'antigravity/1.11.9 windows/amd64',
                         'Authorization': f"Bearer {account['access_token']}",
                         'Content-Type': 'application/json',
