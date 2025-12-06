@@ -13,9 +13,10 @@ from contextlib import asynccontextmanager
 from urllib.parse import urlencode
 from datetime import datetime, timezone, timedelta
 
-from config import get_calls_per_rotation, get_credentials_dir
+from config import get_calls_per_rotation, get_credentials_dir, get_antigravity_skip_project_verification
 from log import log
 from .storage_adapter import get_storage_adapter
+from antigravity.converter import generate_project_id
 
 # Google OAuth 客户端信息（与 antigravity2api-nodejs 保持一致）
 CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
@@ -497,6 +498,10 @@ class AntigravityCredentialManager:
             if not self._current_credential_account:
                 await self._load_current_credential()
 
+            # 检查并处理 projectId（自动生成或验证）
+            if self._current_credential_account:
+                await self._ensure_project_id(self._current_credential_account)
+
             # 检查系列级临时封禁（如果提供了模型名称）
             if model_name and self._current_credential_account:
                 is_banned = await self._check_series_ban(self._current_credential_account, model_name)
@@ -776,6 +781,148 @@ class AntigravityCredentialManager:
 
         except Exception as e:
             log.error(f"Error clearing series ban: {e}")
+
+    async def _ensure_project_id(self, account: Dict[str, Any]) -> None:
+        """
+        确保账号有 projectId，如果没有则根据配置生成或验证
+
+        Args:
+            account: 账号数据字典
+        """
+        # 检查是否已有 projectId
+        if 'project_id' in account and account['project_id']:
+            return  # 已有，无需处理
+
+        # 获取配置
+        skip_verification = await get_antigravity_skip_project_verification()
+
+        if skip_verification:
+            # ===== Pro 账号模式：生成随机 projectId =====
+            account['project_id'] = generate_project_id()
+            log.info(f"[Pro Account] Generated random projectId: {account['project_id']} for {account.get('email', 'unknown')}")
+
+            # 保存到存储
+            await self._save_account_to_storage(account)
+
+        else:
+            # ===== 免费账号模式：API 验证获取 projectId =====
+            log.info(f"[Free Account] Fetching projectId from API for {account.get('email', 'unknown')}")
+
+            try:
+                project_id = await self._fetch_project_id_from_api(account)
+
+                if not project_id:
+                    log.warning(f"Account {account.get('email', 'unknown')} has no Antigravity access (projectId not found)")
+                    # 标记账号无资格，但不禁用（可能是临时问题）
+                    account['has_antigravity_access'] = False
+                    return
+
+                account['project_id'] = project_id
+                account['has_antigravity_access'] = True
+                log.info(f"[Free Account] ProjectId verified: {project_id}")
+
+                # 保存到存储
+                await self._save_account_to_storage(account)
+
+            except Exception as e:
+                log.error(f"Failed to fetch projectId from API: {e}")
+                # 验证失败，使用随机 projectId 作为降级方案（可能会失败）
+                account['project_id'] = generate_project_id()
+                log.warning(f"[Fallback] Using random projectId due to API error: {account['project_id']}")
+
+    async def _fetch_project_id_from_api(self, account: Dict[str, Any]) -> Optional[str]:
+        """
+        从 Google API 获取 projectId
+
+        Args:
+            account: 账号数据字典
+
+        Returns:
+            projectId 或 None（如果账号无资格）
+        """
+        try:
+            # 调用 loadCodeAssist API
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:loadCodeAssist',
+                    headers={
+                        'Host': 'daily-cloudcode-pa.sandbox.googleapis.com',
+                        'User-Agent': 'antigravity/1.11.9 windows/amd64',
+                        'Authorization': f"Bearer {account['access_token']}",
+                        'Content-Type': 'application/json',
+                        'Accept-Encoding': 'gzip'
+                    },
+                    json={'metadata': {'ideType': 'ANTIGRAVITY'}}
+                )
+
+            if response.status_code == 200:
+                data = response.json()
+                project_id = data.get('cloudaicompanionProject')
+                return project_id
+
+            elif response.status_code == 403:
+                log.warning(f"Account {account.get('email')} has no permission (403)")
+                return None
+
+            elif response.status_code == 404:
+                log.warning(f"Account {account.get('email')} not found (404)")
+                return None
+
+            else:
+                log.error(f"Unexpected status code {response.status_code}: {response.text}")
+                return None
+
+        except Exception as e:
+            log.error(f"Error fetching projectId: {e}")
+            raise
+
+    async def _save_account_to_storage(self, account: Dict[str, Any]) -> None:
+        """
+        保存账号数据到存储
+
+        Args:
+            account: 账号数据字典
+        """
+        try:
+            virtual_filename = None
+
+            # 查找对应的 virtual_filename
+            for acc in self._credential_accounts:
+                if acc.get('account', {}).get('email') == account.get('email'):
+                    virtual_filename = acc.get('virtual_filename')
+                    break
+
+            if not virtual_filename:
+                log.error(f"Cannot find virtual_filename for account {account.get('email')}")
+                return
+
+            # 读取现有 accounts.toml
+            accounts_data = await self._storage_adapter.load_antigravity_accounts()
+
+            if not accounts_data or "accounts" not in accounts_data:
+                log.error("Cannot load accounts.toml")
+                return
+
+            # 更新账号数据
+            updated = False
+            for i, acc in enumerate(accounts_data["accounts"]):
+                if acc.get("email") == account.get("email"):
+                    # 更新 project_id 和其他字段
+                    accounts_data["accounts"][i]["project_id"] = account.get("project_id")
+                    if "has_antigravity_access" in account:
+                        accounts_data["accounts"][i]["has_antigravity_access"] = account.get("has_antigravity_access")
+                    updated = True
+                    break
+
+            if updated:
+                # 保存回存储
+                await self._storage_adapter.save_antigravity_accounts(accounts_data)
+                log.debug(f"Account data saved: {account.get('email')}")
+            else:
+                log.warning(f"Account {account.get('email')} not found in accounts.toml")
+
+        except Exception as e:
+            log.error(f"Error saving account to storage: {e}")
 
     async def disable_credential(self, virtual_filename: str):
         """禁用凭证"""

@@ -174,6 +174,32 @@ async def get_auto_ban_error_codes() -> list:
     return AUTO_BAN_ERROR_CODES
 
 
+async def get_antigravity_skip_project_verification() -> bool:
+    """
+    获取 Antigravity 跳过项目验证配置
+
+    此功能允许 Pro 账号跳过 projectId 的 API 验证，直接使用随机生成的 projectId。
+    免费账号官方已修复随机 projectId 漏洞，必须通过 API 验证。
+
+    Environment variable: ANTIGRAVITY_SKIP_PROJECT_VERIFICATION (true/false)
+    TOML config key: antigravity_skip_project_verification
+    Default: False (需要验证)
+
+    Returns:
+        bool: True 表示跳过验证（Pro 账号），False 表示需要验证（免费账号）
+    """
+    env_value = os.getenv("ANTIGRAVITY_SKIP_PROJECT_VERIFICATION")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+
+    # 检查 TOML 配置
+    value = await get_config_value("antigravity_skip_project_verification")
+    if value is not None:
+        return bool(value)
+
+    return ANTIGRAVITY_SKIP_PROJECT_VERIFICATION
+
+
 async def get_retry_429_max_retries() -> int:
     """Get max retries for 429 errors."""
     env_value = os.getenv("RETRY_429_MAX_RETRIES")
@@ -254,6 +280,14 @@ ANTIGRAVITY_SPECIAL_MODELS = [
     "claude-sonnet-4-5-thinking",
     "gemini-2.5-flash-thinking",
 ]
+
+# 是否跳过 Antigravity 项目验证（Pro 账号功能）
+# - True: 跳过验证，使用随机生成的 projectId（适用于 Pro 账号/家庭组共享号）
+# - False: 需要 API 验证获取真实 projectId（免费账号，官方已修复随机 projectId 漏洞）
+ANTIGRAVITY_SKIP_PROJECT_VERIFICATION = os.getenv(
+    "ANTIGRAVITY_SKIP_PROJECT_VERIFICATION",
+    "false"
+).lower() == "true"
 
 
 def get_antigravity_models():
