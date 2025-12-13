@@ -88,8 +88,8 @@ class CredsBackup:
             print(f"⚠️  统计凭证数量失败: {e}")
             return 0
 
-    def _run_git_command(self, cmd, cwd=None):
-        """执行 Git 命令"""
+    def _run_git_command(self, cmd, cwd=None, timeout=300):
+        """执行 Git 命令（带超时保护）"""
         try:
             result = subprocess.run(
                 cmd,
@@ -97,9 +97,13 @@ class CredsBackup:
                 check=True,
                 capture_output=True,
                 text=True,
-                encoding='utf-8'  # [FIX] 明确指定 UTF-8 编码，避免 Windows GBK 解码错误
+                encoding='utf-8',  # [FIX] 明确指定 UTF-8 编码，避免 Windows GBK 解码错误
+                timeout=timeout  # [FIX] 添加超时保护（默认5分钟），防止网络中断时永久卡住
             )
             return result
+        except subprocess.TimeoutExpired as e:
+            print(f"❌ Git 命令超时（{timeout}秒）: {' '.join(cmd)}")
+            raise
         except subprocess.CalledProcessError as e:
             print(f"❌ Git 命令失败: {' '.join(cmd)}")
             print(f"错误: {e.stderr}")
@@ -222,7 +226,8 @@ class CredsBackup:
             cwd=self.backup_repo_dir,
             capture_output=True,
             text=True,
-            encoding='utf-8'  # [FIX] 明确指定 UTF-8 编码，避免 Windows GBK 解码错误
+            encoding='utf-8',  # [FIX] 明确指定 UTF-8 编码，避免 Windows GBK 解码错误
+            timeout=30  # [FIX] 添加超时保护（30秒）
         )
 
         if not status.stdout.strip():
