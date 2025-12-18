@@ -261,7 +261,7 @@ PUBLIC_API_MODELS = ["gemini-2.5-flash-image", "gemini-2.5-flash-image-preview"]
 ANTIGRAVITY_BASE_MODELS = [
     "claude-sonnet-4-5",
     "claude-sonnet-4-5-thinking",
-    "claude-opus-4.5-thinking-8k"
+    "claude-opus-4.5-thinking-8k",
     "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
     "gemini-2.5-flash-thinking",
